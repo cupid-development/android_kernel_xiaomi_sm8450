@@ -715,6 +715,7 @@ static void dpm_noirq_resume_devices(pm_message_t state)
 		dev = to_device(dpm_noirq_list.next);
 		get_device(dev);
 		list_move_tail(&dev->power.entry, &dpm_late_early_list);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		if (!is_async(dev)) {
@@ -729,8 +730,9 @@ static void dpm_noirq_resume_devices(pm_message_t state)
 			}
 		}
 
-		mutex_lock(&dpm_list_mtx);
 		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -856,6 +858,7 @@ void dpm_resume_early(pm_message_t state)
 		dev = to_device(dpm_late_early_list.next);
 		get_device(dev);
 		list_move_tail(&dev->power.entry, &dpm_suspended_list);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		if (!is_async(dev)) {
@@ -869,8 +872,10 @@ void dpm_resume_early(pm_message_t state)
 				pm_dev_err(dev, state, " early", error);
 			}
 		}
-		mutex_lock(&dpm_list_mtx);
+
 		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -1033,7 +1038,12 @@ void dpm_resume(pm_message_t state)
 		}
 		if (!list_empty(&dev->power.entry))
 			list_move_tail(&dev->power.entry, &dpm_prepared_list);
+
+		mutex_unlock(&dpm_list_mtx);
+
 		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	async_synchronize_full();
@@ -1111,14 +1121,16 @@ void dpm_complete(pm_message_t state)
 		get_device(dev);
 		dev->power.is_prepared = false;
 		list_move(&dev->power.entry, &list);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		trace_device_pm_callback_start(dev, "", state.event);
 		device_complete(dev, state);
 		trace_device_pm_callback_end(dev, 0);
 
-		mutex_lock(&dpm_list_mtx);
 		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
 	}
 	list_splice(&list, &dpm_list);
 	mutex_unlock(&dpm_list_mtx);
@@ -1305,17 +1317,21 @@ static int dpm_noirq_suspend_devices(pm_message_t state)
 		error = device_suspend_noirq(dev);
 
 		mutex_lock(&dpm_list_mtx);
+
 		if (error) {
 			pm_dev_err(dev, state, " noirq", error);
 			dpm_save_failed_dev(dev_name(dev));
-			put_device(dev);
-			break;
-		}
-		if (!list_empty(&dev->power.entry))
+		} else if (!list_empty(&dev->power.entry)) {
 			list_move(&dev->power.entry, &dpm_noirq_list);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
 		put_device(dev);
 
-		if (async_error)
+		mutex_lock(&dpm_list_mtx);
+
+		if (error || async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1484,23 +1500,28 @@ int dpm_suspend_late(pm_message_t state)
 		struct device *dev = to_device(dpm_suspended_list.prev);
 
 		get_device(dev);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_suspend_late(dev);
 
 		mutex_lock(&dpm_list_mtx);
+
 		if (!list_empty(&dev->power.entry))
 			list_move(&dev->power.entry, &dpm_late_early_list);
 
 		if (error) {
 			pm_dev_err(dev, state, " late", error);
 			dpm_save_failed_dev(dev_name(dev));
-			put_device(dev);
-			break;
 		}
+
+		mutex_unlock(&dpm_list_mtx);
+
 		put_device(dev);
 
-		if (async_error)
+		mutex_lock(&dpm_list_mtx);
+
+		if (error || async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1763,21 +1784,27 @@ int dpm_suspend(pm_message_t state)
 		struct device *dev = to_device(dpm_prepared_list.prev);
 
 		get_device(dev);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		error = device_suspend(dev);
 
 		mutex_lock(&dpm_list_mtx);
+
 		if (error) {
 			pm_dev_err(dev, state, "", error);
 			dpm_save_failed_dev(dev_name(dev));
-			put_device(dev);
-			break;
-		}
-		if (!list_empty(&dev->power.entry))
+		} else if (!list_empty(&dev->power.entry)) {
 			list_move(&dev->power.entry, &dpm_suspended_list);
+		}
+
+		mutex_unlock(&dpm_list_mtx);
+
 		put_device(dev);
-		if (async_error)
+
+		mutex_lock(&dpm_list_mtx);
+
+		if (error || async_error)
 			break;
 	}
 	mutex_unlock(&dpm_list_mtx);
@@ -1894,6 +1921,7 @@ int dpm_prepare(pm_message_t state)
 		struct device *dev = to_device(dpm_list.next);
 
 		get_device(dev);
+
 		mutex_unlock(&dpm_list_mtx);
 
 		trace_device_pm_callback_start(dev, "", state.event);
@@ -1915,10 +1943,12 @@ int dpm_prepare(pm_message_t state)
 			put_device(dev);
 			break;
 		}
-		dev->power.is_prepared = true;
-		if (!list_empty(&dev->power.entry))
-			list_move_tail(&dev->power.entry, &dpm_prepared_list);
+
+		mutex_unlock(&dpm_list_mtx);
+
 		put_device(dev);
+
+		mutex_lock(&dpm_list_mtx);
 	}
 	mutex_unlock(&dpm_list_mtx);
 	trace_suspend_resume(TPS("dpm_prepare"), state.event, false);
