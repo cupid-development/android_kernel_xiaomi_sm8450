@@ -759,6 +759,16 @@ USER(\label, ic	ivau, \tmp2)			// invalidate I line PoU
 	.endm
 
 /*
+ * Branch Target Identifier (BTI)
+ */
+	.macro  bti, targets
+	.equ	.L__bti_targets_c, 34
+	.equ	.L__bti_targets_j, 36
+	.equ	.L__bti_targets_jc,38
+	hint	#.L__bti_targets_\targets
+	.endm
+
+/*
  * This macro emits a program property note section identifying
  * architecture features which require special handling, mainly for
  * use in assembly files included in the VDSO.
