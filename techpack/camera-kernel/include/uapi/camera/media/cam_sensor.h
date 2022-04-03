@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __UAPI_CAM_SENSOR_H__
@@ -292,6 +293,12 @@ struct cam_ois_opcode {
 	__u32 coeff;
 	__u32 pheripheral;
 	__u32 memory;
+	__u8 fw_addr_type;
+	__u8 is_addr_increase;
+	__u8 is_addr_indata;
+	__u8 fwversion;
+	__u32 fwchecksumsize;
+	__u32 fwchecksum;
 } __attribute__((packed));
 
 /**

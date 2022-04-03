@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2018, 2021 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "cam_sensor_cmn_header.h"
@@ -171,8 +172,13 @@ static int32_t cam_cci_i2c_compare(struct cam_sensor_cci_client *client,
 		addr_type, data_type);
 	if (rc < 0)
 		return rc;
-
+	
+	CAM_DBG(CAM_SENSOR, "addr %04x, %04x,compare data = %d", addr, reg_data, (int16_t)reg_data);
+	
 	reg_data = reg_data & 0xFFFF;
+	/* xiaomi add I2C trace begin */
+	trace_poll_i2c_compare(data, (reg_data & ~data_mask));
+	/* xiaomi add I2C trace end */
 	if (data == (reg_data & ~data_mask))
 		return I2C_COMPARE_MATCH;
 	return I2C_COMPARE_MISMATCH;

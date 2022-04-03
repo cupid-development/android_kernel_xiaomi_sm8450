@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_HFI_REG_H_
@@ -37,15 +38,15 @@
 #define ICP_QHDR_PRI_TYPE_MASK                  0x0000FF00
 #define ICP_QHDR_Q_ID_MASK                      0x000000FF
 
-#define ICP_CMD_Q_SIZE_IN_BYTES                 4096
-#define ICP_MSG_Q_SIZE_IN_BYTES                 4096
+#define ICP_CMD_Q_SIZE_IN_BYTES                 8192
+#define ICP_MSG_Q_SIZE_IN_BYTES                 8192
 #define ICP_DBG_Q_SIZE_IN_BYTES                 102400
 #define ICP_MSG_SFR_SIZE_IN_BYTES               4096
 
 #define ICP_SHARED_MEM_IN_BYTES                 (1024 * 1024)
 #define ICP_UNCACHED_HEAP_SIZE_IN_BYTES         (2 * 1024 * 1024)
 #define ICP_HFI_MAX_PKT_SIZE_IN_WORDS           25600
-#define ICP_HFI_MAX_PKT_SIZE_MSGQ_IN_WORDS      1024
+#define ICP_HFI_MAX_PKT_SIZE_MSGQ_IN_WORDS      2048
 
 #define ICP_HFI_QTBL_HOSTID1                    0x01000000
 #define ICP_HFI_QTBL_STATUS_ENABLED             0x00000001

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_ISP_HW_MGR_INTF_H_
@@ -208,6 +209,7 @@ struct cam_isp_bw_clk_config_info {
  * @packet                 CSL packet from user mode driver
  * @mup_val:               MUP value if configured
  * @mup_en                 Flag if dynamic sensor switch is enabled
+ * @num_exp:               Num of exposures
  *
  */
 struct cam_isp_prepare_hw_update_data {
@@ -223,6 +225,7 @@ struct cam_isp_prepare_hw_update_data {
 	struct cam_packet                    *packet;
 	uint32_t                              mup_val;
 	bool                                  mup_en;
+	uint32_t                              num_exp;
 };
 
 

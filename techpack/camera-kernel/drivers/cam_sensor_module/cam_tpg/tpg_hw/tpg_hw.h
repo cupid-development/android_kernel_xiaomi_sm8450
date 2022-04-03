@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __TPG_HW_H__

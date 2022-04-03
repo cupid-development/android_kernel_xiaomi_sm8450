@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -356,6 +357,7 @@ static void cam_tfe_hw_mgr_stop_hw_res(
 	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
 		if (!isp_hw_res->hw_res[i])
 			continue;
+		isp_hw_res->hw_res[i]->rdi_only_ctx = false;
 		hw_intf = isp_hw_res->hw_res[i]->hw_intf;
 
 		if (isp_hw_res->hw_res[i]->res_state !=
@@ -586,6 +588,7 @@ static int cam_tfe_mgr_csid_stop_hw(
 				continue;
 
 			isp_res = hw_mgr_res->hw_res[i];
+			isp_res->rdi_only_ctx = false;
 			if (isp_res->hw_intf->hw_idx != base_idx)
 				continue;
 			CAM_DBG(CAM_ISP, "base_idx %d res_id %d cnt %u",
@@ -2638,7 +2641,7 @@ static int cam_tfe_mgr_config_hw(void *hw_mgr_priv,
 	if (cfg->reapply_type && cfg->cdm_reset_before_apply) {
 		if (ctx->last_cdm_done_req < cfg->request_id) {
 			cdm_hang_detect =
-				cam_cdm_detect_hang_error(ctx->cdm_handle);
+				cam_cdm_detect_hang_error(ctx->cdm_handle, CAM_ISP);
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
 				"CDM callback not received for req: %lld, last_cdm_done_req: %lld, cdm_hang_detect: %d",
 				cfg->request_id, ctx->last_cdm_done_req,
@@ -2780,7 +2783,7 @@ static int cam_tfe_mgr_config_hw(void *hw_mgr_priv,
 			msecs_to_jiffies(
 			CAM_TFE_HW_CONFIG_TIMEOUT));
 		if (rc <= 0) {
-			if (!cam_cdm_detect_hang_error(ctx->cdm_handle)) {
+			if (!cam_cdm_detect_hang_error(ctx->cdm_handle, CAM_ISP)) {
 				CAM_ERR(CAM_ISP,
 					"CDM workqueue delay detected, wait for some more time req_id=%llu rc=%d ctx_index %d",
 					cfg->request_id, rc,

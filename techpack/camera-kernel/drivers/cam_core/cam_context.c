@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/slab.h>
@@ -721,6 +722,11 @@ int cam_context_init(struct cam_context *ctx,
 	ctx->state_machine = NULL;
 	ctx->ctx_priv = NULL;
 	ctx->img_iommu_hdl = img_iommu_hdl;
+	/*XiaoMi add*/
+	ctx->dbg_timestamp = 0;
+	ctx->dbg_frame = 0;
+	ctx->exlink = -1;
+	ctx->batchsize = 1;
 
 	return 0;
 }

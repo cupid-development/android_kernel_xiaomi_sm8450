@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_CONTEXT_H_
@@ -262,6 +263,12 @@ struct cam_context {
 	struct cam_hw_fence_map_entry *out_map_entries;
 	cam_ctx_mini_dump_cb_func      mini_dump_cb;
 	int                            img_iommu_hdl;
+	/*XiaoMi add*/
+	uint64_t                       dbg_timestamp;
+	uint64_t                       dbg_frame;
+	int32_t                        exlink;
+	uint32_t                       batchsize;
+
 };
 
 /**

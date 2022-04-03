@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/uaccess.h>
@@ -682,7 +683,7 @@ static int32_t cam_ope_process_request_timer(void *priv, void *data)
 			return 0;
 		}
 
-		if (!cam_cdm_detect_hang_error(ctx_data->ope_cdm.cdm_handle)) {
+		if (!cam_cdm_detect_hang_error(ctx_data->ope_cdm.cdm_handle, CAM_OPE)) {
 			cam_ope_req_timer_reset(ctx_data);
 			mutex_unlock(&ctx_data->ctx_mutex);
 			return 0;
