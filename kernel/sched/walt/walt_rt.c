@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <trace/hooks/sched.h>
@@ -139,7 +138,6 @@ static inline bool walt_should_honor_rt_sync(struct rq *rq, struct task_struct *
 		p->prio <= rq->rt.highest_prio.next &&
 		rq->rt.rt_nr_running <= 2;
 }
-
 
 static void walt_select_task_rq_rt(void *unused, struct task_struct *task, int cpu,
 					int sd_flag, int wake_flags, int *new_cpu)

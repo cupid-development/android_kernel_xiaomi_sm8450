@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2019, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 #include <linux/module.h>
 #include <linux/suspend.h>
@@ -50,7 +49,7 @@ static struct notifier_block sleepstate_pm_nb = {
 
 static irqreturn_t smp2p_sleepstate_handler(int irq, void *ctxt)
 {
-	__pm_wakeup_event(notify_ws, 100);
+	__pm_wakeup_event(notify_ws, 200);
 	return IRQ_HANDLED;
 }
 

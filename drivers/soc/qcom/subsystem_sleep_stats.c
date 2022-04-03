@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/cdev.h>
@@ -290,11 +289,6 @@ static const struct file_operations stats_data_fops = {
 	.unlocked_ioctl =	stats_data_ioctl,
 };
 
-#ifdef CONFIG_MI_POWER_INFO_MODULE
-extern void subsystem_sleep_stats_dbg_register(struct sleep_stats_data *prv_data);
-extern void subsystem_sleep_stats_dbg_unregister(void);
-#endif //end of CONFIG_MI_POWER_INFO_MODULE
-
 static int subsystem_stats_probe(struct platform_device *pdev)
 {
 	struct sleep_stats_data *stats_data;
@@ -401,11 +395,6 @@ static int subsystem_stats_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, stats_data);
 
-#ifdef CONFIG_MI_POWER_INFO_MODULE
-	/*mi_power debug*/
-	subsystem_sleep_stats_dbg_register(stats_data);
-#endif //end of CONFIG_MI_POWER_INFO_MODULE
-
 	return 0;
 
 fail_device_create:
@@ -429,11 +418,6 @@ static int subsystem_stats_remove(struct platform_device *pdev)
 	class_destroy(stats_data->stats_class);
 	cdev_del(&stats_data->stats_cdev);
 	unregister_chrdev_region(stats_data->dev_no, 1);
-
-#ifdef CONFIG_MI_POWER_INFO_MODULE
-	/*mi_power debug*/
-	subsystem_sleep_stats_dbg_unregister();
-#endif //end of CONFIG_MI_POWER_INFO_MODULE
 
 	return 0;
 }

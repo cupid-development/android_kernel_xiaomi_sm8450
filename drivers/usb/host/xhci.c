@@ -3,7 +3,6 @@
  * xHCI host controller driver
  *
  * Copyright (C) 2008 Intel Corp.
- * Copyright (C) 2021 XiaoMi, Inc.
  *
  * Author: Sarah Sharp
  * Some code borrowed from the Linux EHCI driver.
@@ -197,7 +196,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 		udelay(1000);
 
 	ret = xhci_handshake(&xhci->op_regs->command,
-			CMD_RESET, 0, 5 * 1000 * 1000);
+			CMD_RESET, 0, 10 * 1000 * 1000);
 	if (ret)
 		return ret;
 
@@ -211,7 +210,7 @@ int xhci_reset(struct xhci_hcd *xhci)
 	 * than status until the "Controller Not Ready" flag is cleared.
 	 */
 	ret = xhci_handshake(&xhci->op_regs->status,
-			STS_CNR, 0, 5 * 1000 * 1000);
+			STS_CNR, 0, 10 * 1000 * 1000);
 
 	xhci->usb2_rhub.bus_state.port_c_suspend = 0;
 	xhci->usb2_rhub.bus_state.suspended_ports = 0;

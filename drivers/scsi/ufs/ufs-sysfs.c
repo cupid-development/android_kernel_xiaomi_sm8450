@@ -1,6 +1,5 @@
 // SPDX-License-Identifier: GPL-2.0
 // Copyright (C) 2018 Western Digital Corporation
-// Copyright (C) 2021 XiaoMi, Inc.
 
 #include <linux/err.h>
 #include <linux/string.h>
@@ -9,6 +8,7 @@
 
 #include "ufs.h"
 #include "ufs-sysfs.h"
+
 #include <trace/hooks/ufshcd.h>
 
 static const char *ufschd_uic_link_state_to_string(
