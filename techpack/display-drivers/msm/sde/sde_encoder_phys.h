@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __SDE_ENCODER_PHYS_H__
@@ -21,8 +22,8 @@
 
 #define SDE_ENCODER_NAME_MAX	16
 
-/* wait for at most 2 vsync for lowest refresh rate (24hz) */
-#define DEFAULT_KICKOFF_TIMEOUT_MS		84
+/* wait for at most 2 vsync for lowest refresh rate (10hz) */
+#define DEFAULT_KICKOFF_TIMEOUT_MS		220
 
 #define MAX_TE_PROFILE_COUNT		5
 /**
