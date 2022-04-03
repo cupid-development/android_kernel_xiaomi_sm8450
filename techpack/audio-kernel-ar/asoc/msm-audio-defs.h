@@ -1,4 +1,5 @@
 /* Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -68,6 +69,7 @@
 #define LPASS_BE_SEC_TDM_RX_0 "TDM-LPAIF_AUD-RX-PRIMARY"
 #define LPASS_BE_SEC_TDM_TX_0 "TDM-LPAIF_AUD-TX-PRIMARY"
 #define LPASS_BE_TERT_TDM_RX_0 "TDM-LPAIF-RX-TERTIARY"
+#define LPASS_BE_TERT_TDM_RX_0_VIRT "TDM-LPAIF-RX-TERTIARY-VIRT-2"
 #define LPASS_BE_TERT_TDM_TX_0 "TDM-LPAIF-TX-TERTIARY"
 #define LPASS_BE_SEN_TDM_RX_0 "TDM-LPAIF_WSA-RX-PRIMARY"
 #define LPASS_BE_SEN_TDM_TX_0 "TDM-LPAIF_WSA-TX-PRIMARY"
