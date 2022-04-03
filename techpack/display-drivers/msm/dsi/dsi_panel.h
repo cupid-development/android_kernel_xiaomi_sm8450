@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _DSI_PANEL_H_
@@ -22,6 +23,8 @@
 #include "dsi_parser.h"
 #include "msm_drv.h"
 
+#include "mi_dsi_panel.h"
+
 #define MAX_BL_LEVEL 4096
 #define MAX_BL_SCALE_LEVEL 1024
 #define MAX_SV_BL_SCALE_LEVEL 65535
@@ -29,6 +32,8 @@
 
 #define DSI_CMD_PPS_HDR_SIZE 7
 #define DSI_MODE_MAX 32
+
+#define DIM_PARAM 4094
 
 /*
  * Defining custom dsi msg flag.
@@ -127,6 +132,7 @@ struct dsi_backlight_config {
 	u32 bl_min_level;
 	u32 bl_max_level;
 	u32 brightness_max_level;
+	u32 brightness_init_level;
 	/* current brightness value */
 	u32 brightness;
 	u32 bl_level;
@@ -138,6 +144,7 @@ struct dsi_backlight_config {
 	u32 dimming_min_bl;
 	u32 dimming_status;
 	bool user_disable_notification;
+	bool dimming_enabled;
 
 	int en_gpio;
 	/* PWM params */
@@ -181,6 +188,7 @@ struct drm_panel_esd_config {
 	bool esd_enabled;
 
 	enum esd_check_status_mode status_mode;
+	struct dsi_panel_cmd_set offset_cmd;
 	struct dsi_panel_cmd_set status_cmd;
 	u32 *status_cmds_rlen;
 	u32 *status_valid_params;
@@ -254,6 +262,7 @@ struct dsi_panel {
 
 	bool panel_initialized;
 	bool te_using_watchdog_timer;
+	bool switch_vsync_delay;
 	struct dsi_qsync_capabilities qsync_caps;
 	struct dsi_avr_capabilities avr_caps;
 
@@ -271,6 +280,8 @@ struct dsi_panel {
 	enum dsi_panel_physical_type panel_type;
 
 	struct dsi_panel_ops panel_ops;
+
+	struct mi_dsi_panel_cfg mi_cfg;
 };
 
 static inline bool dsi_panel_ulps_feature_enabled(struct dsi_panel *panel)
@@ -406,5 +417,17 @@ int dsi_panel_create_cmd_packets(const char *data, u32 length, u32 count,
 
 void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 
+void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
+
+int dsi_panel_tx_cmd_set(struct dsi_panel *panel,
+				enum dsi_cmd_set_type type);
+int dsi_panel_update_backlight(struct dsi_panel *panel,
+				u32 bl_lvl);
+int dsi_panel_get_cmd_pkt_count(const char *data, u32 length, u32 *cnt);
+int dsi_panel_alloc_cmd_packets(struct dsi_panel_cmd_set *cmd,
+				u32 packet_count);
+int dsi_panel_create_cmd_packets(const char *data,
+				u32 length, u32 count, struct dsi_cmd_desc *cmd);
+void dsi_panel_destroy_cmd_packets(struct dsi_panel_cmd_set *set);
 void dsi_panel_dealloc_cmd_packets(struct dsi_panel_cmd_set *set);
 #endif /* _DSI_PANEL_H_ */

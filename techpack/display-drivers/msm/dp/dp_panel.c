@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include "dp_panel.h"
@@ -3018,7 +3019,7 @@ static void dp_panel_convert_to_dp_mode(struct dp_panel *dp_panel,
 			return;
 		}
 
-		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0);
+		rc = sde_dsc_populate_dsc_config(&comp_info->dsc_info.config, 0, 0);
 		if (rc) {
 			DP_DEBUG("failed populating dsc params \n");
 			return;

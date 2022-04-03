@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __SDE_VM_EVENT_H__
@@ -9,8 +10,8 @@
 #include <linux/list.h>
 #include <linux/types.h>
 #include <linux/slab.h>
-#include <linux/platform_device.h>
 #include <drm/drm_device.h>
+#include <linux/platform_device.h>
 
 /**
  * struct - msm_io_irq_entry - define irq item

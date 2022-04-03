@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020 The Linux Foundation. All rights reserved.
+ * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef __SDE_DSC_HELPER_H__
@@ -10,7 +11,7 @@
 
 #define DSC_1_1_PPS_PARAMETER_SET_ELEMENTS   88
 
-int sde_dsc_populate_dsc_config(struct drm_dsc_config *dsc, int scr_ver);
+int sde_dsc_populate_dsc_config(struct drm_dsc_config *dsc, int scr_ver, u64 mi_panel_id);
 
 int sde_dsc_populate_dsc_private_params(struct msm_display_dsc_info *dsc_info,
 		int intf_width);
