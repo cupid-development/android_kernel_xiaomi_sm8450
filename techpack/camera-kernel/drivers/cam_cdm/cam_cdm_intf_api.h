@@ -1,7 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #ifndef _CAM_CDM_API_H_
@@ -190,18 +189,6 @@ struct cam_cdm_bl_info {
 };
 
 /**
- * struct cam_cdm_bl_info
- *
- * @handle    : handle for the bl fifo client
- * @module_id : module information of the hw.
- *
- */
-struct cam_cdm_handle_info {
-	uint32_t handle;
-	uint32_t module_id;
-};
-
-/**
  * @brief : API to get the CDM capabilities for a camera device type
  *
  * @identifier : Input pointer to a string which is the device label from dt
@@ -336,11 +323,10 @@ struct cam_cdm_utils_ops *cam_cdm_publish_ops(void);
  *          this should be only performed only if the CDM is private.
  *
  * @handle : Input handle of the CDM to detect hang
- * @module_id : Module id of the HW
  *
  * @return 0 on success
  */
-int cam_cdm_detect_hang_error(uint32_t handle, uint32_t module_id);
+int cam_cdm_detect_hang_error(uint32_t handle);
 
 /**
  * @brief : API to dump the CDM Debug registers

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
- * Copyright (C) 2021 XiaoMi, Inc.
  */
 
 #include <linux/delay.h>
@@ -481,12 +480,11 @@ int cam_cdm_handle_error(uint32_t handle)
 }
 EXPORT_SYMBOL(cam_cdm_handle_error);
 
-int cam_cdm_detect_hang_error(uint32_t handle, uint32_t module_id)
+int cam_cdm_detect_hang_error(uint32_t handle)
 {
 	uint32_t hw_index;
 	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
-	struct cam_cdm_handle_info handle_info;
 
 	if (get_cdm_mgr_refcount()) {
 		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
@@ -497,14 +495,11 @@ int cam_cdm_detect_hang_error(uint32_t handle, uint32_t module_id)
 	hw_index = CAM_CDM_GET_HW_IDX(handle);
 	if (hw_index < CAM_CDM_INTF_MGR_MAX_SUPPORTED_CDM) {
 		hw = cdm_mgr.nodes[hw_index].device;
-		if (hw && hw->hw_ops.process_cmd) {
-			handle_info.handle = handle;
-			handle_info.module_id = module_id;
+		if (hw && hw->hw_ops.process_cmd)
 			rc = hw->hw_ops.process_cmd(hw->hw_priv,
 				CAM_CDM_HW_INTF_CMD_HANG_DETECT,
-				&handle_info,
-				sizeof(handle_info));
-		}
+				&handle,
+				sizeof(handle));
 	}
 	put_cdm_mgr_refcount();
 
