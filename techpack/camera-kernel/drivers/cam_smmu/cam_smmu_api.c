@@ -2265,7 +2265,7 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		goto err_alloc;
 	}
 
-	CAM_DBG(CAM_SMMU, "idx=%d, dma_buf=%pK, dev=%pOFfp, paddr=0x%llx, len=%zu",
+	CAM_DBG(CAM_SMMU, "idx=%d, dma_buf=%pK, dev=%pK, paddr=0x%llx, len=%zu",
 		idx, buf,
 		iommu_cb_set.cb_info[idx].dev->of_node,
 		*paddr_ptr, *len_ptr);

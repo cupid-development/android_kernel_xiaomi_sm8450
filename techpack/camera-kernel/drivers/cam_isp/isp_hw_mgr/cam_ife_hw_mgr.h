@@ -241,6 +241,7 @@ struct cam_ife_cdm_user_data {
  * @recovery_id:            Unique ID of the current valid scheduled recovery
  * @current_mup:            Current MUP val, scratch will then apply the same as previously
  *                          applied request
+ * @curr_num_exp:           Current num of exposures
  *
  */
 struct cam_ife_hw_mgr_ctx {
@@ -297,6 +298,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                          bw_config_version;
 	atomic_t                          recovery_id;
 	uint32_t                          current_mup;
+	uint32_t                          curr_num_exp;
 };
 
 /**

@@ -480,11 +480,12 @@ int cam_cdm_handle_error(uint32_t handle)
 }
 EXPORT_SYMBOL(cam_cdm_handle_error);
 
-int cam_cdm_detect_hang_error(uint32_t handle)
+int cam_cdm_detect_hang_error(uint32_t handle, uint32_t module_id)
 {
 	uint32_t hw_index;
 	int rc = -EINVAL;
 	struct cam_hw_intf *hw;
+	struct cam_cdm_handle_info handle_info;
 
 	if (get_cdm_mgr_refcount()) {
 		CAM_ERR(CAM_CDM, "CDM intf mgr get refcount failed");
@@ -495,11 +496,14 @@ int cam_cdm_detect_hang_error(uint32_t handle)
 	hw_index = CAM_CDM_GET_HW_IDX(handle);
 	if (hw_index < CAM_CDM_INTF_MGR_MAX_SUPPORTED_CDM) {
 		hw = cdm_mgr.nodes[hw_index].device;
-		if (hw && hw->hw_ops.process_cmd)
+		if (hw && hw->hw_ops.process_cmd) {
+			handle_info.handle = handle;
+			handle_info.module_id = module_id;
 			rc = hw->hw_ops.process_cmd(hw->hw_priv,
 				CAM_CDM_HW_INTF_CMD_HANG_DETECT,
-				&handle,
-				sizeof(handle));
+				&handle_info,
+				sizeof(handle_info));
+		}
 	}
 	put_cdm_mgr_refcount();
 

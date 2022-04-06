@@ -634,7 +634,7 @@ int cam_hfi_resume(struct hfi_mem_info *hfi_mem)
 	if (cam_common_read_poll_timeout(icp_base +
 		    HFI_REG_ICP_HOST_INIT_RESPONSE,
 		    HFI_POLL_DELAY_US, HFI_POLL_TIMEOUT_US,
-		    0x1, ICP_INIT_RESP_SUCCESS, &status)) {
+		    (uint32_t)UINT_MAX, ICP_INIT_RESP_SUCCESS, &status)) {
 	    CAM_ERR(CAM_HFI, "response poll timed out: status=0x%08x",
 		    status);
 	    return -ETIMEDOUT;
@@ -868,8 +868,6 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 		icp_base + HFI_REG_SECONDARY_HEAP_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->sec_heap.len,
 		icp_base + HFI_REG_SECONDARY_HEAP_SIZE);
-	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_SET,
-		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 	cam_io_w_mb((uint32_t)hfi_mem->qdss.iova,
 		icp_base + HFI_REG_QDSS_IOVA);
 	cam_io_w_mb((uint32_t)hfi_mem->qdss.len,
@@ -886,6 +884,8 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 		icp_base + HFI_REG_FWUNCACHED_REGION_IOVA);
 	cam_io_w_mb((uint32_t)hfi_mem->fw_uncached.len,
 		icp_base + HFI_REG_FWUNCACHED_REGION_SIZE);
+	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_SET,
+		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 
 	CAM_DBG(CAM_HFI, "IO1 : [0x%x 0x%x] IO2 [0x%x 0x%x]",
 		hfi_mem->io_mem.iova, hfi_mem->io_mem.len,
@@ -906,7 +906,7 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 	if (cam_common_read_poll_timeout(icp_base +
 		    HFI_REG_ICP_HOST_INIT_RESPONSE,
 		    HFI_POLL_DELAY_US, HFI_POLL_TIMEOUT_US,
-		    0x1, ICP_INIT_RESP_SUCCESS, &status)) {
+		    (uint32_t)UINT_MAX, ICP_INIT_RESP_SUCCESS, &status)) {
 		CAM_ERR(CAM_HFI, "response poll timed out: status=0x%08x",
 			status);
 		rc = -ETIMEDOUT;
