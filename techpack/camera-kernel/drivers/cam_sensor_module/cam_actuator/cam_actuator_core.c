@@ -57,7 +57,13 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 		&a_ctrl->soc_info;
 	struct cam_actuator_soc_private  *soc_private;
 	struct cam_sensor_power_ctrl_t *power_info;
+	struct timespec64 ts1, ts2; // xiaomi add
+	long microsec = 0; // xiaomi add
 
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts1);
+	CAM_DBG(MI_DEBUG, "%s start power_up", a_ctrl->device_name);
+	/* xiaomi add end */
 	soc_private =
 		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
 	power_info = &soc_private->power_info;
@@ -110,6 +116,12 @@ static int32_t cam_actuator_power_up(struct cam_actuator_ctrl_t *a_ctrl)
 		CAM_ERR(CAM_ACTUATOR, "cci init failed: rc: %d", rc);
 		goto cci_failure;
 	}
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts2);
+	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+	CAM_DBG(MI_DEBUG, "%s end power_up, occupy time is: %ld ms",
+		a_ctrl->device_name, microsec/1000);
+	/* xiaomi add end */
 
 	return rc;
 cci_failure:
@@ -125,7 +137,13 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_hw_soc_info *soc_info = &a_ctrl->soc_info;
 	struct cam_actuator_soc_private  *soc_private;
+	struct timespec64 ts1, ts2; // xiaomi add
+	long microsec = 0; // xiaomi add
 
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts1);
+	CAM_DBG(MI_DEBUG, "%s start power_down", a_ctrl->device_name);
+	/* xiaomi add end */
 	if (!a_ctrl) {
 		CAM_ERR(CAM_ACTUATOR, "failed: a_ctrl %pK", a_ctrl);
 		return -EINVAL;
@@ -147,6 +165,12 @@ static int32_t cam_actuator_power_down(struct cam_actuator_ctrl_t *a_ctrl)
 	}
 
 	camera_io_release(&a_ctrl->io_master_info);
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts2);
+	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+	CAM_DBG(MI_DEBUG, "%s end power_down, occupy time is: %ld ms",
+		a_ctrl->device_name, microsec/1000);
+	/* xiaomi add end */
 
 	return rc;
 }
@@ -249,6 +273,7 @@ int32_t cam_actuator_apply_settings(struct cam_actuator_ctrl_t *a_ctrl,
 {
 	struct i2c_settings_list *i2c_list;
 	int32_t rc = 0;
+	int32_t j = 0; // xiaomi add
 
 	if (a_ctrl == NULL || i2c_set == NULL) {
 		CAM_ERR(CAM_ACTUATOR, "Invalid Args");
@@ -262,6 +287,30 @@ int32_t cam_actuator_apply_settings(struct cam_actuator_ctrl_t *a_ctrl,
 
 	list_for_each_entry(i2c_list,
 		&(i2c_set->list_head), list) {
+		/* xiaomi add I2C trace begin */
+		switch (i2c_list->op_code) {
+		case CAM_SENSOR_I2C_WRITE_RANDOM:
+		case CAM_SENSOR_I2C_WRITE_BURST:
+		case CAM_SENSOR_I2C_WRITE_SEQ: {
+			for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+				trace_cam_i2c_write_log_event("[ACTUATORSETTINGS]", a_ctrl->device_name,
+					i2c_set->request_id, j, "WRITE", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+					i2c_list->i2c_settings.reg_setting[j].reg_data);
+			}
+			break;
+		}
+		case CAM_SENSOR_I2C_READ_RANDOM:
+		case CAM_SENSOR_I2C_READ_SEQ: {
+			for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+				trace_cam_i2c_write_log_event("[ACTUATORSETTINGS]", a_ctrl->device_name,
+					i2c_set->request_id, j, "READ", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+					i2c_list->i2c_settings.reg_setting[j].reg_data);
+			}
+			break;
+		}
+		default:
+			break;
+		} /* xiaomi add I2C trace end */
 		rc = cam_actuator_i2c_modes_util(
 			&(a_ctrl->io_master_info),
 			i2c_list);

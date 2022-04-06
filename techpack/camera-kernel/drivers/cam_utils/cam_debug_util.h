@@ -52,6 +52,8 @@ enum cam_debug_module_id {
 	CAM_CRE,                 /* bit 31 */
 	CAM_PRESIL_CORE,         /* bit 32 */
 	CAM_TPG,                 /* bit 33 */
+	MI_DEBUG = 62,           /* bit 62 */
+	MI_PERF  = 63,           /* bit 63 */
 	CAM_DBG_MOD_MAX
 };
 
@@ -109,6 +111,8 @@ static const char *cam_debug_mod_name[CAM_DBG_MOD_MAX] = {
 	[CAM_CRE]         = "CAM-CRE",
 	[CAM_PRESIL_CORE] = "CAM-CORE-PRESIL",
 	[CAM_TPG]         = "CAM-TPG",
+	[MI_DEBUG]        = "MI-CAM-DEBUG",
+	[MI_PERF]         = "MI-CAM-PERF",
 };
 
 #define ___CAM_DBG_MOD_NAME(module_id)                                      \
@@ -146,7 +150,9 @@ __builtin_choose_expr(((module_id) == CAM_SFE), "CAM-SFE",                  \
 __builtin_choose_expr(((module_id) == CAM_CRE), "CAM-CRE",                  \
 __builtin_choose_expr(((module_id) == CAM_PRESIL_CORE), "CAM-CORE-PRESIL",  \
 __builtin_choose_expr(((module_id) == CAM_TPG), "CAM-TPG",                  \
-"CAMERA"))))))))))))))))))))))))))))))))))
+__builtin_choose_expr(((module_id) == MI_DEBUG), "MI-CAM-DEBUG",            \
+__builtin_choose_expr(((module_id) == MI_PERF), "MI-CAM-PERF",              \
+"CAMERA"))))))))))))))))))))))))))))))))))))
 
 #define CAM_DBG_MOD_NAME(module_id) \
 ((module_id < CAM_DBG_MOD_MAX) ? cam_debug_mod_name[module_id] : "CAMERA")
@@ -162,6 +168,21 @@ static const char *cam_debug_tag_name[CAM_TYPE_MAX] = {
 	[CAM_TYPE_INFO]  = "CAM_INFO",
 	[CAM_TYPE_DBG]   = "CAM_DBG",
 };
+
+/* xiaomi add hw trigger - begin */
+/*
+ *  cam_debug_hw_trigger()
+ *
+ * @brief     :  Debug for hw question.set up this as a hw trigger
+ *               cam_hw_trigger_override[0]= (offset) + value(in schematic diagram)
+ *
+ * @module_id :  Respective Module ID which is calling this function
+ * @status    :  The state value used to determine whether to trigger
+ *
+ * @return    :  If there is no error, it will return 0
+ */
+int cam_debug_hw_trigger(unsigned int module_id, bool status);
+/* xiaomi add hw trigger - end */
 
 #define ___CAM_LOG_TAG_NAME(tag)                     \
 ({                                                  \
@@ -284,6 +305,23 @@ __CAM_LOG(CAM_PRINT_TRACE, CAM_TYPE_TRACE, __module, fmt, ##args)
 #define CAM_DBG(__module, fmt, args...)     __CAM_DBG(__module, CAM_DBG_PRIORITY_0, fmt, ##args)
 #define CAM_DBG_PR1(__module, fmt, args...) __CAM_DBG(__module, CAM_DBG_PRIORITY_1, fmt, ##args)
 #define CAM_DBG_PR2(__module, fmt, args...) __CAM_DBG(__module, CAM_DBG_PRIORITY_2, fmt, ##args)
+
+/* xiaomi add hw trigger - begin */
+/*
+ * CAM_DEBUG_HW_TRIGGER
+ * @brief    :  This macro is used to set the value of GPIO and print the corresponding
+ *              log when the status meets the conditions.
+ *
+ * @__module :  Respective module id which is been calling this Macro
+ * @fmt      :  Formatted string which needs to be print in log
+ * @args     :  Arguments which needs to be print in log
+ */
+#define CAM_DEBUG_HW_TRIGGER(status, __module, fmt, args...)                  \
+	({if (unlikely(status)) {                                             \
+		cam_debug_hw_trigger(__module, status);                       \
+		CAM_ERR(__module, fmt, ##args);                               \
+	}})
+/* xiaomi add hw trigger - end */
 
 /**
  * cam_print_to_buffer

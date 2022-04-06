@@ -728,8 +728,8 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 	rc = camera_io_dev_read(
 		&(s_ctrl->io_master_info),
 		slave_info->sensor_id_reg_addr,
-		&chipid, CAMERA_SENSOR_I2C_TYPE_WORD,
-		CAMERA_SENSOR_I2C_TYPE_WORD);
+		&chipid,s_ctrl->sensor_probe_addr_type,
+		s_ctrl->sensor_probe_data_type);
 
 	CAM_DBG(CAM_SENSOR, "%s read id: 0x%x expected id 0x%x:",
 		s_ctrl->sensor_name, chipid, slave_info->sensor_id);
@@ -752,6 +752,8 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		&s_ctrl->sensordata->power_info;
 	struct timespec64 ts;
 	uint64_t ms, sec, min, hrs;
+	struct timespec64 ts1, ts2; // xiaomi add
+	long microsec = 0; // xiaomi add
 
 	if (!s_ctrl || !arg) {
 		CAM_ERR(CAM_SENSOR, "s_ctrl is NULL");
@@ -1136,6 +1138,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.init_settings.request_id == 0)) {
+			/* xiaomi add begin */
+			CAM_GET_TIMESTAMP(ts1);
+			CAM_DBG(MI_PERF, "%s start initial settings", s_ctrl->sensor_name);
+			/* xiaomi add end */
 
 			pkt_opcode =
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG;
@@ -1170,10 +1176,20 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 					s_ctrl->sensor_name);
 				goto release_mutex;
 			}
+			/* xiaomi add begin */
+			CAM_GET_TIMESTAMP(ts2);
+			CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+			CAM_DBG(MI_PERF, "%s end initial settings, occupy time is: %ld ms",
+				s_ctrl->sensor_name, microsec/1000);
+			/* xiaomi add end */
 		}
 
 		if (s_ctrl->i2c_data.config_settings.is_settings_valid &&
 			(s_ctrl->i2c_data.config_settings.request_id == 0)) {
+			/* xiaomi add begin */
+			CAM_GET_TIMESTAMP(ts1);
+			CAM_DBG(MI_PERF, "%s start config settings", s_ctrl->sensor_name);
+			/* xiaomi add end */
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
 
@@ -1195,6 +1211,12 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				goto release_mutex;
 			}
 			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
+			/* xiaomi add begin */
+			CAM_GET_TIMESTAMP(ts2);
+			CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+			CAM_DBG(MI_PERF, "%s end config settings, occupy time is: %ld ms",
+				s_ctrl->sensor_name, microsec/1000);
+			/* xiaomi add end */
 		}
 
 		if (s_ctrl->i2c_data.read_settings.is_settings_valid) {
@@ -1315,7 +1337,13 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	struct cam_camera_slave_info *slave_info;
 	struct cam_hw_soc_info *soc_info =
 		&s_ctrl->soc_info;
+	struct timespec64 ts1, ts2; // xiaomi add
+	long microsec = 0; // xiaomi add
 
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts1);
+	CAM_DBG(MI_DEBUG, "%s start power_up", s_ctrl->sensor_name);
+	/* xiaomi add end */
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "failed: %pK", s_ctrl);
 		return -EINVAL;
@@ -1350,6 +1378,12 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
 		goto cci_failure;
 	}
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts2);
+	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+	CAM_DBG(MI_DEBUG, "%s end power_up, occupy time is: %ld ms",
+		s_ctrl->sensor_name, microsec/1000);
+	/* xiaomi add end */
 
 	return rc;
 cci_failure:
@@ -1365,7 +1399,13 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_hw_soc_info *soc_info;
 	int rc = 0;
+	struct timespec64 ts1, ts2; // xiaomi add
+	long microsec = 0; // xiaomi add
 
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts1);
+	CAM_DBG(MI_DEBUG, "%s start power_down", s_ctrl->sensor_name);
+	/* xiaomi add end */
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "failed: s_ctrl %pK", s_ctrl);
 		return -EINVAL;
@@ -1399,6 +1439,12 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	camera_io_release(&(s_ctrl->io_master_info));
+	/* xiaomi add begin */
+	CAM_GET_TIMESTAMP(ts2);
+	CAM_GET_TIMESTAMP_DIFF_IN_MICRO(ts1, ts2, microsec);
+	CAM_DBG(MI_DEBUG, "%s end power_down, occupy time is: %ld ms",
+		s_ctrl->sensor_name, microsec/1000);
+	/* xiaomi add end */
 
 	return rc;
 }
@@ -1410,23 +1456,36 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 	uint64_t top = 0, del_req_id = 0;
 	struct i2c_settings_array *i2c_set = NULL;
 	struct i2c_settings_list *i2c_list;
+	int32_t j = 0; // xiaomi add
 
 	if (req_id == 0) {
 		switch (opcode) {
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
 			i2c_set = &s_ctrl->i2c_data.streamon_settings;
+			/* xiaomi add I2C trace begin */
+			trace_opcode_name(opcode, "CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON");
+			/* xiaomi add I2C trace end */
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG: {
 			i2c_set = &s_ctrl->i2c_data.init_settings;
+			/* xiaomi add I2C trace begin */
+			trace_opcode_name(opcode, "CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG");
+			/* xiaomi add I2C trace end */
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG: {
 			i2c_set = &s_ctrl->i2c_data.config_settings;
+			/* xiaomi add I2C trace begin */
+			trace_opcode_name(opcode, "CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG");
+			/* xiaomi add I2C trace end */
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
 			i2c_set = &s_ctrl->i2c_data.streamoff_settings;
+			/* xiaomi add I2C trace begin */
+			trace_opcode_name(opcode, "CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF");
+			/* xiaomi add I2C trace end */
 			break;
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE:
@@ -1439,6 +1498,30 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		if (i2c_set->is_settings_valid == 1) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set->list_head), list) {
+				/* xiaomi add I2C trace begin */
+				switch (i2c_list->op_code) {
+				case CAM_SENSOR_I2C_WRITE_RANDOM:
+				case CAM_SENSOR_I2C_WRITE_BURST:
+				case CAM_SENSOR_I2C_WRITE_SEQ: {
+					for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+						trace_cam_i2c_write_log_event("[SENSORSETTINGS]", s_ctrl->sensor_name,
+						req_id, j, "WRITE", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+						i2c_list->i2c_settings.reg_setting[j].reg_data);
+					}
+					break;
+				}
+				case CAM_SENSOR_I2C_READ_RANDOM:
+				case CAM_SENSOR_I2C_READ_SEQ: {
+					for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+						trace_cam_i2c_write_log_event("[SENSORSETTINGS]", s_ctrl->sensor_name,
+						req_id, j, "READ", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+						i2c_list->i2c_settings.reg_setting[j].reg_data);
+					}
+					break;
+				}
+				default:
+					break;
+				} /* xiaomi add I2C trace end */
 				rc = cam_sensor_i2c_modes_util(
 					&(s_ctrl->io_master_info),
 					i2c_list);
@@ -1462,6 +1545,30 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 			i2c_set[offset].request_id == req_id) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set[offset].list_head), list) {
+				/* xiaomi add I2C trace begin */
+				switch (i2c_list->op_code) {
+				case CAM_SENSOR_I2C_WRITE_RANDOM:
+				case CAM_SENSOR_I2C_WRITE_BURST:
+				case CAM_SENSOR_I2C_WRITE_SEQ: {
+					for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+						trace_cam_i2c_write_log_event("[SENSORSETTINGS]", s_ctrl->sensor_name,
+						req_id, j, "WRITE", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+						i2c_list->i2c_settings.reg_setting[j].reg_data);
+					}
+					break;
+				}
+				case CAM_SENSOR_I2C_READ_RANDOM:
+				case CAM_SENSOR_I2C_READ_SEQ: {
+					for (j = 0;j < i2c_list->i2c_settings.size;j++) {
+						trace_cam_i2c_write_log_event("[SENSORSETTINGS]", s_ctrl->sensor_name,
+						req_id, j, "READ", i2c_list->i2c_settings.reg_setting[j].reg_addr,
+						i2c_list->i2c_settings.reg_setting[j].reg_data);
+					}
+					break;
+				}
+				default:
+					break;
+				} /* xiaomi add I2C trace end */
 				rc = cam_sensor_i2c_modes_util(
 					&(s_ctrl->io_master_info),
 					i2c_list);

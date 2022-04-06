@@ -118,6 +118,7 @@ struct cam_ois_ctrl_t {
 	struct cam_subdev v4l2_dev_str;
 	struct cam_ois_intf_params bridge_intf;
 	struct i2c_settings_array i2c_fwinit_data;
+	struct i2c_settings_array i2c_postinit_data;
 	struct i2c_settings_array i2c_init_data;
 	struct i2c_settings_array i2c_calib_data;
 	struct i2c_settings_array i2c_mode_data;

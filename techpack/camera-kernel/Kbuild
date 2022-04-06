@@ -288,3 +288,7 @@ camera-y += drivers/camera_main.o
 
 obj-m += camera.o
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/camera.ko
+
+cameralog-y := drivers/cam_log/cam_log.o
+obj-m+= cameralog.o
+BOARD_VENDOR_KERNEL_MODULES +=  $(KERNEL_MODULES_OUT)/cameralog.ko

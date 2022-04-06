@@ -507,4 +507,28 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
  */
 int cam_isp_context_deinit(struct cam_isp_context *ctx);
 
+/**
+ * cam_isp_detect_framerate()
+ *
+ * @brief:                  function to detect framerate - XiaoMi add
+ *
+ * @ctx:                    ISP context obj to be detected
+ * @interval:               frame interval number to calculate framerate
+ *
+ */
+void cam_isp_detect_framerate(struct cam_isp_context *ctx,
+	uint interval);
+
+/**
+ * cam_isp_GetFrameBatchsize()
+ *
+ * @brief:                  function to get frame batchsize of HFR - XiaoMi add
+ *
+ * @ctx:                    ISP context obj to be detected
+ * @cpkt:                   Camera packet
+ *
+ */
+void cam_isp_GetFrameBatchsize(struct cam_context *ctx,
+	struct cam_packet  *cpkt);
+
 #endif  /* __CAM_ISP_CONTEXT_H__ */

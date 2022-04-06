@@ -14,7 +14,8 @@
 #define CAM_REQ_MGR_MAX_LINKED_DEV     16
 #define MAX_REQ_SLOTS                  48
 
-#define CAM_REQ_MGR_WATCHDOG_TIMEOUT          1000
+/* xiaomi add change wd timer reset to 5000ms from 1000ms*/
+#define CAM_REQ_MGR_WATCHDOG_TIMEOUT          5000
 #define CAM_REQ_MGR_WATCHDOG_TIMEOUT_DEFAULT  5000
 #define CAM_REQ_MGR_WATCHDOG_TIMEOUT_MAX      50000
 #define CAM_REQ_MGR_SCHED_REQ_TIMEOUT         1000
@@ -37,7 +38,7 @@
 
 #define MAXIMUM_LINKS_PER_SESSION  4
 
-#define MAXIMUM_RETRY_ATTEMPTS 3
+#define MAXIMUM_RETRY_ATTEMPTS 6
 
 #define MINIMUM_WORKQUEUE_SCHED_TIME_IN_MS 5
 

@@ -55,5 +55,21 @@ include $(LOCAL_PATH)/include/uapi/Android.mk
 else
 include $(DLKM_DIR)/Build_external_kernelmodule.mk
 endif
+include $(CLEAR_VARS)
+# For incremental compilation support.
+LOCAL_SRC_FILES             :=  \
+                                $(shell find $(LOCAL_PATH)/config -L -type f)      \
+                                $(shell find $(LOCAL_PATH)/drivers -L -type f)     \
+                                $(shell find $(LOCAL_PATH)/dt-bindings -L -type f) \
+                                $(shell find $(LOCAL_PATH)/include -L -type f)     \
+                                $(LOCAL_PATH)/Android.mk \
+                                $(LOCAL_PATH)/board.mk   \
+                                $(LOCAL_PATH)/product.mk \
+                                $(LOCAL_PATH)/Kbuild
+LOCAL_MODULE_PATH           := $(KERNEL_MODULES_OUT)
+LOCAL_MODULE                := cameralog.ko
+LOCAL_MODULE_TAGS           := optional
+include $(DLKM_DIR)/Build_external_kernelmodule.mk
+
 
 endif # End of check for board platform

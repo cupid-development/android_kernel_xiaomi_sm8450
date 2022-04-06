@@ -1856,24 +1856,38 @@ int cam_hw_cdm_handle_error(
 
 int cam_hw_cdm_hang_detect(
 	struct cam_hw_info *cdm_hw,
-	uint32_t            handle)
+	uint32_t            handle,
+	uint32_t            hang_detect_ife_ope)
 {
 	struct cam_cdm *cdm_core = NULL;
 	struct cam_hw_soc_info *soc_info;
 	int i, rc = -1;
+	uint32_t fifo_idx;
 
+	fifo_idx = CAM_CDM_GET_BLFIFO_IDX(handle);
 	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 	soc_info = &cdm_hw->soc_info;
 
-	for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++)
-		if (atomic_read(&cdm_core->bl_fifo[i].work_record)) {
+	if (hang_detect_ife_ope & CAM_ISP) {
+		if (atomic_read(&cdm_core->bl_fifo[fifo_idx].work_record)) {
 			CAM_WARN(CAM_CDM,
-				"fifo: %d Workqueue got delayed for %s%u, work_record :%u",
-				i, soc_info->label_name, soc_info->index,
-				atomic_read(&cdm_core->bl_fifo[i].work_record));
+				"workqueue got delayed for %s%u , work_record :%u",
+				soc_info->label_name, soc_info->index,
+				atomic_read(&cdm_core->bl_fifo[fifo_idx].work_record));
 			rc = 0;
-			break;
 		}
+	} else {
+		for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++) {
+			if (atomic_read(&cdm_core->bl_fifo[i].work_record)) {
+				CAM_WARN(CAM_CDM,
+					"workqueue got delayed for %s%u, work_record :%u",
+					soc_info->label_name, soc_info->index,
+					atomic_read(&cdm_core->bl_fifo[i].work_record));
+				rc = 0;
+				break;
+			}
+		}
+	}
 
 	return rc;
 }

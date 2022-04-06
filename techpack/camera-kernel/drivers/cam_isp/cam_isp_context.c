@@ -23,6 +23,10 @@
 #include "cam_cpas_api.h"
 #include "cam_ife_hw_mgr.h"
 
+/*XiaoMi add*/
+static uint frame_interval_para;
+module_param(frame_interval_para, uint, 0644);
+
 static const char isp_dev_name[] = "cam-isp";
 
 static struct cam_isp_ctx_debug isp_ctx_debug;
@@ -1347,6 +1351,13 @@ static void __cam_isp_ctx_send_sof_timestamp(
 			"Error in notifying the sof time for req id:%lld",
 			request_id);
 
+	/*XiaoMi add*/
+	if (frame_interval_para > 1) {
+		cam_isp_detect_framerate(ctx_isp,frame_interval_para);
+	} else if (frame_interval_para == 1) {
+		CAM_DBG(MI_PERF,"ERROR,frame interval number must greater than 1");
+	}
+
 end:
 	__cam_isp_ctx_send_sof_boot_timestamp(ctx_isp,
 		request_id, sof_event_status);
@@ -1819,6 +1830,18 @@ static int __cam_isp_ctx_handle_deferred_buf_done_in_bubble(
 	return rc;
 }
 
+static bool __cam_isp_ctx_request_can_reapply(struct cam_isp_ctx_req *req_isp)
+{
+	int j;
+
+	for (j = 0; j < req_isp->num_fence_map_out; j++) {
+		if (req_isp->fence_map_out[j].sync_id == -1)
+			return false;
+	}
+
+	return true;
+}
+
 static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 	struct cam_isp_context *ctx_isp,
 	struct cam_ctx_request  *req,
@@ -2012,11 +2035,16 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 	}
 
 	if (req_isp->num_acked > req_isp->num_fence_map_out) {
-		/* Should not happen */
-		CAM_ERR(CAM_ISP,
-			"WARNING: req_id %lld num_acked %d > map_out %d, ctx %u",
-			req->request_id, req_isp->num_acked,
-			req_isp->num_fence_map_out, ctx->ctx_id);
+		/* As long as we can re-apply the request, bubble is recoverable. */
+		if (req_isp->bubble_detected && __cam_isp_ctx_request_can_reapply(req_isp)) {
+			CAM_DBG(CAM_ISP, "num acked mismatch but can re-apply");
+			req_isp->num_acked = req_isp->num_fence_map_out;
+		} else {
+			CAM_ERR(CAM_ISP,
+				"WARNING: req_id %lld num_acked %d > map_out %d, ctx %u",
+				req->request_id, req_isp->num_acked,
+				req_isp->num_fence_map_out, ctx->ctx_id);
+		}
 	}
 
 	if (req_isp->num_acked != req_isp->num_fence_map_out)
@@ -5691,6 +5719,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		goto free_req;
 	}
 
+	/*Xiaomi add*/
+	if (frame_interval_para > 1) {
+		cam_isp_GetFrameBatchsize(ctx,packet);
+	}
+
 	req_isp->num_cfg = cfg.num_hw_update_entries;
 	req_isp->num_fence_map_out = cfg.num_out_map_entries;
 	req_isp->num_fence_map_in = cfg.num_in_map_entries;
@@ -7600,4 +7633,81 @@ int cam_isp_context_deinit(struct cam_isp_context *ctx)
 	memset(ctx, 0, sizeof(*ctx));
 
 	return 0;
+}
+
+/*XiaoMi add*/
+void cam_isp_detect_framerate(struct cam_isp_context *ctx,
+	uint interval)
+{
+	uint32_t timespan;
+	uint64_t frame_rate;
+
+	if ((ctx->base->exlink != ctx->base->link_hdl) ||
+		(ctx->frame_id == 1)) {
+		ctx->base->exlink = ctx->base->link_hdl;
+		ctx->base->dbg_timestamp = ctx->sof_timestamp_val;
+		ctx->base->dbg_frame = ctx->frame_id;
+	} else {
+		switch (ctx->frame_id%interval) {
+		case 0: {
+			timespan = (ctx->sof_timestamp_val - ctx->base->dbg_timestamp)/1000000;
+			frame_rate = ctx->base->batchsize*(1000000*(ctx->frame_id - ctx->base->dbg_frame))/timespan;
+			CAM_DBG(MI_PERF,
+				"link hdl 0x%x frame number %d Time Span(ms):%d Frame rate(fps):%d.%03d ctx %d",
+				ctx->base->link_hdl,ctx->frame_id,timespan,frame_rate/1000,frame_rate%1000,ctx->base->ctx_id);
+			break;
+		}
+		case 1: {
+			ctx->base->dbg_timestamp = ctx->sof_timestamp_val;
+			ctx->base->dbg_frame = ctx->frame_id;
+			break;
+		}
+		default:
+			break;
+		}
+	}
+}
+
+/*Xiaomi add*/
+void cam_isp_GetFrameBatchsize(struct cam_context *ctx,
+	struct cam_packet  *cpkt)
+{
+	int Rc = 0;
+	struct cam_cmd_buf_desc              *cmd_desc = NULL;
+	struct cam_isp_resource_hfr_config   *hfr_config1;
+	uintptr_t                            cpu_addr = 0;
+	size_t                               buf_size;
+	uint32_t                             *blob_ptr;
+	uint32_t     blob_type, blob_size, blob_block_size, len_read;
+
+	cmd_desc = (struct cam_cmd_buf_desc *)
+		((uint8_t *)cpkt->payload +
+		cpkt->cmd_buf_offset);
+
+	if (cmd_desc[2].meta_data == CAM_ISP_PACKET_META_GENERIC_BLOB_COMMON) {
+		Rc = cam_mem_get_cpu_buf(cmd_desc[2].mem_handle, &cpu_addr, &buf_size);
+			blob_ptr = (uint32_t *)(((uint8_t *)cpu_addr) + cmd_desc[2].offset);
+
+		len_read = 0;
+		while (len_read < cmd_desc[2].length) {
+			blob_type =
+				((*blob_ptr) & CAM_GENERIC_BLOB_CMDBUFFER_TYPE_MASK) >>
+				CAM_GENERIC_BLOB_CMDBUFFER_TYPE_SHIFT;
+			blob_size =
+				((*blob_ptr) & CAM_GENERIC_BLOB_CMDBUFFER_SIZE_MASK) >>
+				CAM_GENERIC_BLOB_CMDBUFFER_SIZE_SHIFT;
+
+			blob_block_size = sizeof(uint32_t) +
+				(((blob_size + sizeof(uint32_t) - 1) /
+				sizeof(uint32_t)) * sizeof(uint32_t));
+
+			len_read += blob_block_size;
+			if (blob_type == CAM_ISP_GENERIC_BLOB_TYPE_HFR_CONFIG ) {
+				hfr_config1 = (struct cam_isp_resource_hfr_config *)(uint8_t *)(blob_ptr + 1);
+				ctx->batchsize = hfr_config1->port_hfr_config[10].subsample_period +1;
+				break;
+			}
+			blob_ptr += (blob_block_size / sizeof(uint32_t));
+		}
+	}
 }
