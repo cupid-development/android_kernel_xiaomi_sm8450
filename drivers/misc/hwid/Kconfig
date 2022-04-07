@@ -1,0 +1,5 @@
+config MI_HARDWARE_ID
+	tristate "Register xiaomi hwid module"
+	default n
+	help
+	  This adds support for mi hwid.
