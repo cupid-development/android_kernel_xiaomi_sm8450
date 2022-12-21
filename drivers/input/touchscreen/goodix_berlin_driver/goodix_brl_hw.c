@@ -231,9 +231,12 @@ static int brl_power_on(struct goodix_ts_core *cd, bool on)
 				goto power_off;
 			}
 		}
+
+		gpio_direction_output(cd->board_data.reset_gpio, 0);
 		usleep_range(15000, 15100);
-		gpio_direction_output(reset_gpio, 1);
-		usleep_range(4000, 4100);
+		gpio_direction_output(cd->board_data.reset_gpio, 1);
+		msleep(GOODIX_NORMAL_RESET_DELAY_MS);
+
 		ret = brl_dev_confirm(cd);
 		if (ret < 0)
 			goto power_off;
@@ -241,7 +244,6 @@ static int brl_power_on(struct goodix_ts_core *cd, bool on)
 		if (ret < 0)
 			goto power_off;
 
-		msleep(GOODIX_NORMAL_RESET_DELAY_MS);
 		return 0;
 	}
 
