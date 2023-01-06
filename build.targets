@@ -6,3 +6,5 @@ build.config.neo_la
 build.config.msm.parrot
 build.config.waipio_le
 
+build.config.msm.cupid
+build.config.msm.zeus
