@@ -5,7 +5,7 @@
 
 ################################################################################
 ## Variant setup
-MSM_ARCH=waipio
+MSM_ARCH=zeus
 VARIANTS=(consolidate gki)
 [ -z "${VARIANT}" ] && VARIANT=consolidate
 
