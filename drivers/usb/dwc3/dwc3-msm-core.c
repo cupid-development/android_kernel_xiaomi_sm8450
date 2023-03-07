@@ -3302,6 +3302,9 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 			}
 		}
 	} else if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
+		if (!dwc->gadget)
+			return;
+
 		if (dwc->gadget->speed == USB_SPEED_HIGH ||
 			dwc->gadget->speed == USB_SPEED_FULL)
 			mdwc->hs_phy->flags |= PHY_HSFS_MODE;
@@ -3594,6 +3597,7 @@ static int dwc3_msm_suspend(struct dwc3_msm *mdwc, bool force_power_collapse)
 	dwc3_set_phy_speed_flags(mdwc);
 	/* Suspend HS PHY */
 	usb_phy_set_suspend(mdwc->hs_phy, 1);
+	usb_phy_set_suspend(mdwc->ss_phy, 1);
 
 	/*
 	 * Synopsys Superspeed PHY does not support ss_phy_irq, so to detect
@@ -6037,8 +6041,9 @@ static int dwc3_otg_start_host(struct dwc3_msm *mdwc, int on)
 			flush_work(&dwc->drd_work);
 		dwc3_msm_override_pm_ops(&dwc->xhci->dev, mdwc->xhci_pm_ops, true);
 		mdwc->in_host_mode = true;
+		dwc3_msm_override_pm_ops(&dwc->xhci->dev, mdwc->xhci_pm_ops, true);
 		pm_runtime_use_autosuspend(&dwc->xhci->dev);
-		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 0);
+		pm_runtime_set_autosuspend_delay(&dwc->xhci->dev, 3000);
 		pm_runtime_allow(&dwc->xhci->dev);
 		pm_runtime_mark_last_busy(&dwc->xhci->dev);
 
@@ -6226,7 +6231,6 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		msm_dwc3_perf_vote_enable(mdwc, false);
 		cpu_latency_qos_remove_request(&mdwc->pm_qos_req_dma);
 
-		dwc3_override_vbus_status(mdwc, false);
 		mdwc->in_device_mode = false;
 		usb_phy_notify_disconnect(mdwc->hs_phy, USB_SPEED_HIGH);
 		usb_phy_set_power(mdwc->hs_phy, 0);
@@ -6293,6 +6297,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	int ret = 0;
 	unsigned long delay = 0;
 	const char *state;
+	unsigned int timeout = 20;
 
 	if (mdwc->dwc3)
 		dwc = platform_get_drvdata(mdwc->dwc3);
@@ -6358,6 +6363,21 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		dbg_event(0xFF, "Exit UNDEF", 0);
 		/* fall-through */
 	case DRD_STATE_IDLE:
+		if (test_bit(WAIT_FOR_LPM, &mdwc->inputs)){
+			do {
+				msleep(20);
+			} while (--timeout && (test_bit(WAIT_FOR_LPM, &mdwc->inputs)));
+
+			if (!timeout) {
+				dev_info(mdwc->dev,
+						"Not in LPM after disconnect, forcing suspend...\n");
+				dbg_event(0xFF, "Force:SUSP",
+						atomic_read(&mdwc->dev->power.usage_count));
+				pm_runtime_suspend(mdwc->dev);
+			} else
+				dev_info(mdwc->dev, "enter in lpm after:%d ms\n",20*timeout);
+		}
+
 		if (test_bit(WAIT_FOR_LPM, &mdwc->inputs)) {
 			dev_dbg(mdwc->dev, "still not in lpm, wait.\n");
 			dbg_event(0xFF, "WAIT_FOR_LPM", 0);
