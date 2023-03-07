@@ -4,7 +4,6 @@
  * FTS Capacitive touch screen controller (FingerTipS)
  *
  * Copyright (C) 2017, STMicroelectronics
- * Copyright (C) 2021 XiaoMi, Inc.
  * Authors: AMG(Analog Mems Group)
  *
  * 		marco.cali@st.com
@@ -81,7 +80,7 @@
 #define FTS_XIAOMI_TOUCHFEATURE
 #define FTS_FOD_AREA_REPORT
 #define FTS_DEBUG_FS
-
+#define CONFIG_I2C_BY_DMA 1
 #define DEBUG
 
 /*#define USE_ONE_FILE_NODE*/
@@ -201,6 +200,7 @@ struct fts_hw_platform_data {
 	int (*power) (bool on);
 	int irq_gpio;
 	int reset_gpio;
+	int avdd_gpio;
 	unsigned long irq_flags;
 	unsigned int x_max;
 	unsigned int y_max;

@@ -43,13 +43,11 @@ static void *client;
 #include "ftsError.h"
 #include "ftsHardware.h"
 #include "ftsIO.h"
-
+#include "../fts.h"
 extern struct fts_ts_info *fts_info;
 static struct mutex rw_lock;
 static u8 *buf1;
 static u8 *buf2;
-
-
 /**
 * Initialize the static client variable of the fts_lib library in order to allow any i2c/spi transaction in the driver. (Must be called in the probe)
 * @param clt pointer to i2c_client or spi_device struct which identify the bus slave device
