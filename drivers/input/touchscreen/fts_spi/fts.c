@@ -85,6 +85,7 @@
 #include <linux/rtc.h>
 #include <linux/time.h>
 #include <linux/time64.h>
+#include <uapi/linux/sched/types.h>
 
 #ifdef FTS_XIAOMI_TOUCHFEATURE
 #include "../xiaomi/xiaomi_touch.h"
@@ -151,7 +152,7 @@ static int fts_set_cur_value(int mode, int value);
 #endif
 extern int power_supply_is_system_supplied(void);
 
-extern void touch_irq_boost(void);
+//extern void touch_irq_boost(void);
 
 #ifdef CONFIG_FTS_BOOST
 #define EVENT_INPUT 0x1
@@ -2581,6 +2582,7 @@ static inline int32_t thp_crc32_check(int s32_message[], int s32_len)
 	return s32_remainder;
 }
 
+#if 0
 static int clear_interrupt(void)
 {
 	u8 cmd[6] = {0xfa, 0x20, 0x00, 0x00, 0x29, 0x02};
@@ -2618,9 +2620,11 @@ static int fts_lock_scan_mode(int mode)
 		logError(1, "%s %s: write failed...ERROR %08X !\n", tag, __func__, ret);
 		return -EPERM;
 	}
+	/*
 	if (mode == 0x12) {
 		update_active_status(false);
 	}
+	*/
 
 	return 0;
 }
@@ -2665,6 +2669,7 @@ static int get_slot_trackingId(struct fts_ts_info *info)
 
 	return id;
 }
+#endif
 
 
 
@@ -2679,6 +2684,8 @@ int fts_enable_touch_delta(bool en)
 	logError(1, "%s %s enable touch delta:%d\n", tag, __func__, fts_info->enable_touch_delta);
 	return 0;
 }
+
+#endif
 
 int fts_hover_auto_tune(struct fts_ts_info *info)
 {
@@ -3129,6 +3136,7 @@ static ssize_t fts_fod_test_store(struct device *dev,
 	return count;
 }
 
+/*
 static void fts_set_fod_downup(struct fts_ts_info *info, int enable)
 {
 	logError(1, " %s %s, %d\n", tag, __func__, enable);
@@ -3145,6 +3153,7 @@ static void fts_set_fod_downup(struct fts_ts_info *info, int enable)
 		input_sync(info->input_dev);
 	}
 }
+*/
 #endif
 static ssize_t fts_ellipse_data_show(struct device *dev,
 				    struct device_attribute *attr, char *buf)
@@ -3617,6 +3626,8 @@ static DEVICE_ATTR(touchgame, (S_IRUGO | S_IWUSR | S_IWGRP),
 #endif
 static DEVICE_ATTR(fod_area, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   fts_fod_area_show, fts_fod_area_store);
+static DEVICE_ATTR(cmd_fifo, (S_IRUGO | S_IWUSR | S_IWGRP),
+		   fts_cmdfifo_show, NULL);
 static struct attribute *fts_attr_group[] = {
 	&dev_attr_fwupdate.attr,
 	&dev_attr_appid.attr,
@@ -4808,7 +4819,7 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 	}
 
 
-	touch_irq_boost();
+	//touch_irq_boost();
 
 	if (!info->tp_pm_suspend) {
 		pm_stay_awake(info->dev);
@@ -4834,7 +4845,8 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 	cpu_latency_qos_add_request(&info->pm_qos_req_irq, 0);
 	if (info->clicktouch_count) {
 		count = get_ms_strength_data(info);
-		update_knock_data((u8 *)info->strength_buf, count, info->clicktouch_num - info->clicktouch_count);
+		//update_knock_data((u8 *)info->strength_buf, count, info->clicktouch_num - info->clicktouch_count);
+		copy_touch_rawdata((u8 *)info->strength_buf, count);
 		count  = 0;
 	}
 	error = fts_writeReadU8UX(regAdd, 0, 0, data, FIFO_EVENT_SIZE,
@@ -4881,7 +4893,8 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 	if (info->clicktouch_num) {
 		if (info->touch_id && info->clicktouch_count) {
 			info->clicktouch_count--;
-			knock_data_notify();
+			//knock_data_notify();
+			update_clicktouch_raw();
 		} else if (!info->touch_id)
 			info->clicktouch_count = info->clicktouch_num;
 	}
@@ -5717,11 +5730,12 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 
 #ifdef FTS_XIAOMI_TOUCHFEATURE
 static struct xiaomi_touch_interface xiaomi_touch_interfaces;
-
+/*
 static int fts_get_touch_super_resolution_factor(void) {
 	logError(0, "current super resolution factor is: %d", SUPER_RESOLUTION_FACOTR);
 	return SUPER_RESOLUTION_FACOTR;
 }
+*/
 
 int fts_read_touchmode_data(void)
 {
@@ -6673,12 +6687,14 @@ static char fts_touch_vendor_read(void)
 	return '1';
 }
 
+/*
 static void fts_enable_click_touch_raw(int count)
 {
 	logError(1, "%s count:%d\n", __func__, count);
 	fts_info->clicktouch_count = count;
 	fts_info->clicktouch_num = count;
 }
+*/
 #endif
 
 #ifdef FTS_VSYNC_MODE_ENABLE
@@ -6718,6 +6734,7 @@ static int fts_set_vsync_mode(struct fts_ts_info *info, u32 fps)
 }
 #endif
 
+/*
 static int fts_up_interrups_mode(struct fts_ts_info *info, int enable)
 {
 	int res = 0;
@@ -6742,6 +6759,7 @@ static int fts_set_up_interrupts_mode(int enable)
 {
 	return	fts_up_interrups_mode(fts_info, enable);
 }
+*/
 
 /**
  * Resume work function which perform a system reset, clean all the touches from the linux input system and prepare the ground for enabling the sensing
@@ -6760,7 +6778,7 @@ static void fts_resume_work(struct work_struct *work)
 		return;
 
 	pm_stay_awake(info->dev);
-	XIAOMI_TOUCH_UTC_PRINT(tag);
+	//XIAOMI_TOUCH_UTC_PRINT(tag);
 	if (info->tp_pm_suspend) {
 		pm_wakeup_event(info->dev, 0);
 		r = wait_for_completion_timeout(&info->pm_resume_completion, msecs_to_jiffies(500));
@@ -6896,7 +6914,7 @@ static void fts_suspend_work(struct work_struct *work)
 	lpm_disable_for_dev(false, EVENT_INPUT);
 #endif
 	xiaomi_touch_set_suspend_state(XIAOMI_TOUCH_SUSPEND);
-	update_active_status(false);
+	//update_active_status(false);
 	pm_relax(info->dev);
 }
 
@@ -7856,6 +7874,8 @@ static int parse_dt(struct device *dev, struct fts_hw_platform_data *bdata)
 	    of_property_read_bool(np, "fts,swap-y");
 	bdata->support_fod =
 	    of_property_read_bool(np, "fts,support-fod");
+	bdata->support_thp =
+	    of_property_read_bool(np, "fts,support-thp");
 	bdata->support_vsync_mode =
 	    of_property_read_bool(np, "fts,support-vsync-mode");
 
@@ -9066,10 +9086,10 @@ static int fts_probe(struct spi_device *client)
 	xiaomi_touch_interfaces.get_touch_tx_num = fts_get_tx_num;
 	xiaomi_touch_interfaces.get_touch_x_resolution = fts_get_x_resolution;
 	xiaomi_touch_interfaces.get_touch_y_resolution = fts_get_y_resolution;
-	xiaomi_touch_interfaces.get_touch_super_resolution_factor = fts_get_touch_super_resolution_factor;
-	xiaomi_touch_interfaces.set_up_interrupt_mode = fts_set_up_interrupts_mode;
+	//xiaomi_touch_interfaces.get_touch_super_resolution_factor = fts_get_touch_super_resolution_factor;
+	//xiaomi_touch_interfaces.set_up_interrupt_mode = fts_set_up_interrupts_mode;
 	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
-	register_frame_count_change_listener(fts_enable_click_touch_raw);
+	//register_frame_count_change_listener(fts_enable_click_touch_raw);
 	fts_read_touchmode_data();
 	fts_init_touchmode_data();
 	fts_info->enable_touch_delta = 1;

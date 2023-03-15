@@ -35,6 +35,7 @@
 #include <linux/sysfs.h>
 #include <linux/notifier.h>
 #include <linux/mutex.h>
+#include <linux/pm_qos.h>
 #include "fts_lib/ftsSoftware.h"
 #include "fts_lib/ftsHardware.h"
 #include <linux/completion.h>
@@ -250,6 +251,8 @@ struct fts_hw_platform_data {
 	u32 touch_expert_array[6 * EXPERT_ARRAY_SIZE];
 #endif
 	bool support_fod;
+	bool support_thp;
+	bool support_vsync_mode;
 };
 
 /*
@@ -335,9 +338,11 @@ struct fts_ts_info {
 	struct work_struct resume_work;
 	struct work_struct cmd_update_work;
 	struct work_struct sleep_work;
+	struct work_struct fps_notify_work;
 	struct workqueue_struct *event_wq;
 	struct workqueue_struct *irq_wq;
 	struct workqueue_struct *touch_feature_wq;
+	struct workqueue_struct *fps_wq;
 
 #ifndef FW_UPDATE_ON_PROBE
 	struct delayed_work fwu_work;
@@ -349,6 +354,7 @@ struct fts_ts_info {
 
 	unsigned int mode;
 	unsigned long touch_id;
+	unsigned long temp_touch_id;
 	unsigned long sleep_finger;
 	unsigned long touch_skip;
 #ifdef STYLUS_MODE
@@ -439,6 +445,8 @@ struct fts_ts_info {
 	struct work_struct grip_mode_work;
 	bool big_area_fod;
 	struct delayed_work power_supply_work;
+	struct delayed_work panel_notifier_register_work;
+
 	int charging_status;
 	struct notifier_block power_supply_notifier;
 	bool probe_ok;
@@ -446,6 +454,10 @@ struct fts_ts_info {
 	int fod_icon_status;
 	int nonui_status;
 	bool fod_down;
+	u32 reprot_rate;
+	struct pm_qos_request pm_qos_req_irq;
+	u32 vsync_fps;
+	bool gpio_has_request;
 };
 
 extern int fts_chip_powercycle(struct fts_ts_info *info);
