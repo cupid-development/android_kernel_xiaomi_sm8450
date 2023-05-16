@@ -70,7 +70,7 @@ quiet_cmd_remove = REMOVE  $(unwanted)
 
 __headers: $(all-headers)
 ifneq ($(unwanted),)
-	$(call cmd,remove)
+#	$(call cmd,remove)
 endif
 	@:
 
