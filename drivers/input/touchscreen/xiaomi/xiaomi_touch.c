@@ -519,9 +519,9 @@ struct device_attribute *attr, const char *buf, size_t count)
 
 	pr_info("%s,%d\n", __func__, input);
 	if (touch_data->enable_touch_raw)
-		touch_data->enable_touch_raw(!!input);
+		touch_data->enable_touch_raw(input);
 
-	touch_data->is_enable_touchraw = !!input;
+	touch_data->is_enable_touchraw = input;
 	touch_pdata->raw_tail = 0;
 	touch_pdata->raw_head = 0;
 
