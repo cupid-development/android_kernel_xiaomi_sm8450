@@ -1116,6 +1116,25 @@ static ssize_t touch_finger_status_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", touch_data->finger_status);
 }
 
+void update_touch_irq_no(int irq_no)
+{
+	if (!touch_pdata) {
+		return;
+	}
+
+	touch_pdata->touch_data[0]->irq_no = irq_no;
+	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL, "touch_irq_no");
+}
+EXPORT_SYMBOL_GPL(update_touch_irq_no);
+
+static ssize_t touch_irq_no_show(struct device *dev,
+				 struct device_attribute *attr, char *buf)
+{
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->touch_data[0]->irq_no);
+}
+
 int update_fod_press_status(int value)
 {
 	struct xiaomi_touch *dev = NULL;
@@ -1254,6 +1273,8 @@ static DEVICE_ATTR(touch_active_status, (0664), touch_active_status_show, NULL);
 static DEVICE_ATTR(touch_finger_status, (0664), touch_finger_status_show,
 		   touch_finger_status_store);
 
+static DEVICE_ATTR(touch_irq_no, (0664), touch_irq_no_show, NULL);
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
@@ -1283,6 +1304,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_resolution_factor.attr,
 	&dev_attr_touch_active_status.attr,
 	&dev_attr_touch_finger_status.attr,
+	&dev_attr_touch_irq_no.attr,
 	NULL,
 };
 
