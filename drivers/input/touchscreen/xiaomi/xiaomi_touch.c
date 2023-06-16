@@ -277,8 +277,6 @@ int xiaomitouch_register_modedata(int touchId,
 		touch_data->enable_touch_raw = data->enable_touch_raw;
 	if (data->enable_touch_delta)
 		touch_data->enable_touch_delta = data->enable_touch_delta;
-	if (data->enable_clicktouch_raw)
-		touch_data->enable_clicktouch_raw = data->enable_clicktouch_raw;
 	if (data->get_touch_super_resolution_factor)
 		touch_data->get_touch_super_resolution_factor =
 			data->get_touch_super_resolution_factor;
@@ -960,42 +958,6 @@ static ssize_t update_rawdata_store(struct device *dev,
 	return count;
 }
 
-static ssize_t enable_clicktouch_store(struct device *dev,
-				       struct device_attribute *attr,
-				       const char *buf, size_t count)
-{
-	struct xiaomi_touch_interface *touch_data = NULL;
-	unsigned int input;
-
-	if (!touch_pdata) {
-		return -ENOMEM;
-	}
-	touch_data = touch_pdata->touch_data[0];
-
-	if (sscanf(buf, "%d", &input) < 0)
-		return -EINVAL;
-
-	pr_info("%s,%d\n", __func__, input);
-	if (touch_data->enable_clicktouch_raw)
-		touch_data->enable_clicktouch_raw(input);
-
-	return count;
-}
-
-static ssize_t enable_clicktouch_show(struct device *dev,
-				      struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%s\n", "1");
-}
-
-int update_clicktouch_raw(void)
-{
-	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL, "clicktouch_raw");
-
-	return 0;
-}
-EXPORT_SYMBOL_GPL(update_clicktouch_raw);
-
 int xiaomi_touch_set_suspend_state(int state)
 {
 	if (!touch_pdata) {
@@ -1120,9 +1082,6 @@ static DEVICE_ATTR(palm_sensor, (S_IRUGO | S_IWUSR | S_IWGRP), palm_sensor_show,
 static DEVICE_ATTR(prox_sensor, (S_IRUGO | S_IWUSR | S_IWGRP), prox_sensor_show,
 		   prox_sensor_store);
 
-static DEVICE_ATTR(clicktouch_raw, (S_IRUGO | S_IWUSR | S_IWGRP),
-		   enable_clicktouch_show, enable_clicktouch_store);
-
 static DEVICE_ATTR(panel_vendor, (S_IRUGO), panel_vendor_show, NULL);
 
 static DEVICE_ATTR(panel_color, (S_IRUGO), panel_color_show, NULL);
@@ -1156,7 +1115,6 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
 	&dev_attr_touch_thp_cmd.attr,
-	&dev_attr_clicktouch_raw.attr,
 	&dev_attr_touch_thp_tx_num.attr,
 	&dev_attr_touch_thp_rx_num.attr,
 	&dev_attr_touch_thp_x_resolution.attr,
