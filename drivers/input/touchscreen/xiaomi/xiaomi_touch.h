@@ -138,6 +138,7 @@ struct xiaomi_touch_interface {
 	int thp_smooth;
 	int thp_dump_raw;
 	bool is_enable_touchdelta;
+	bool active_status;
 };
 
 struct xiaomi_touch {
@@ -219,5 +220,7 @@ extern int notify_gesture_single_tap(void);
 extern int update_fod_press_status(int value);
 
 extern void thp_send_cmd_to_hal(int cmd, int value);
+
+extern void update_active_status(bool status);
 
 #endif
