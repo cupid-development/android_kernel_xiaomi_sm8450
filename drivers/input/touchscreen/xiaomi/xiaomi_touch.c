@@ -1363,6 +1363,67 @@ const struct seq_operations last_touch_events_seq_ops = {
 	.stop = event_stop,
 	.show = event_show,
 };
+
+static ssize_t tp_hal_version_read(struct file *file, char __user *buf,
+				   size_t count, loff_t *pos)
+{
+	struct xiaomi_touch_interface *touch_data = NULL;
+	int ret;
+
+	if (!touch_pdata) {
+		return -ENOMEM;
+	}
+	touch_data = touch_pdata->touch_data[0];
+
+	if (*pos != 0) {
+		return 0;
+	}
+
+	ret = copy_to_user(buf, &touch_data->tp_hal_version,
+			   strlen(touch_data->tp_hal_version));
+	if (ret == 0) {
+		*pos += strlen(touch_data->tp_hal_version);
+	} else {
+		return -EFAULT;
+	}
+
+	return count;
+}
+
+static ssize_t tp_hal_version_write(struct file *file, const char __user *buf,
+				    size_t count, loff_t *pos)
+{
+	struct xiaomi_touch_interface *touch_data = NULL;
+	int ret;
+
+	if (!touch_pdata) {
+		return -ENOMEM;
+	}
+	touch_data = touch_pdata->touch_data[0];
+
+	touch_data->thp_downthreshold = 0;
+	touch_data->thp_upthreshold = 0;
+	touch_data->thp_movethreshold = 0;
+	touch_data->thp_noisefilter = 0;
+	touch_data->thp_islandthreshold = 0;
+	touch_data->thp_smooth = 0;
+	touch_data->thp_dump_raw = 0;
+
+	if (count < TP_VERSION_SIZE) {
+		ret = copy_from_user(&touch_data->tp_hal_version, buf, count);
+		if (ret != 0) {
+			return -EINVAL;
+		}
+	}
+
+	return count;
+}
+
+static const struct proc_ops tp_hal_version_ops = {
+	.proc_read = tp_hal_version_read,
+	.proc_write = tp_hal_version_write,
+};
+
 /*
 static int32_t last_touch_events_open(struct inode *inode, struct file *file)
 {
@@ -1525,6 +1586,9 @@ static int xiaomi_touch_probe(struct platform_device *pdev)
 	pdata->last_touch_events_proc = proc_create_seq(
 		"last_touch_events", 0644, NULL, &last_touch_events_seq_ops);
 
+	pdata->tp_hal_version_proc =
+		proc_create("tp_hal_version", 0644, NULL, &tp_hal_version_ops);
+
 	pr_info("%s over\n", __func__);
 
 	return ret;
@@ -1593,6 +1657,11 @@ static int xiaomi_touch_remove(struct platform_device *pdev)
 	if (touch_pdata->last_touch_events_proc != NULL) {
 		remove_proc_entry("last_touch_events", NULL);
 		touch_pdata->last_touch_events_proc = NULL;
+	}
+
+	if (touch_pdata->tp_hal_version_proc != NULL) {
+		remove_proc_entry("tp_hal_version", NULL);
+		touch_pdata->tp_hal_version_proc = NULL;
 	}
 
 	if (touch_pdata->touch_data[0]) {

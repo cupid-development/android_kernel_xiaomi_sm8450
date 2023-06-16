@@ -35,6 +35,7 @@
 #define MAX_TOUCH_ID 10
 #define RAW_BUF_NUM 4
 #define THP_CMD_BASE 1000
+#define TP_VERSION_SIZE 64
 
 #define XIAOMI_TOUCH_UTC_PRINT(tag)                                                   \
 	do {                                                                          \
@@ -137,6 +138,7 @@ struct xiaomi_touch_interface {
 	int thp_islandthreshold;
 	int thp_smooth;
 	int thp_dump_raw;
+	char tp_hal_version[TP_VERSION_SIZE];
 	bool is_enable_touchdelta;
 	bool active_status;
 	bool finger_status;
@@ -193,6 +195,7 @@ struct xiaomi_touch_pdata {
 	const char *name;
 	int fod_press_status_value;
 	struct proc_dir_entry *last_touch_events_proc;
+	struct proc_dir_entry *tp_hal_version_proc;
 	struct last_touch_event *last_touch_events;
 };
 
