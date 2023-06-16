@@ -7199,11 +7199,13 @@ static char fts_touch_vendor_read(void)
 	return '1';
 }
 
-static void fts_enable_click_touch_raw(int count)
+static int fts_enable_click_touch_raw(int count)
 {
 	logError(1, "%s count:%d\n", __func__, count);
 	fts_info->clicktouch_count = count;
 	fts_info->clicktouch_num = count;
+
+	return 0;
 }
 #endif
 
