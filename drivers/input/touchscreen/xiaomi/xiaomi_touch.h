@@ -189,10 +189,10 @@ extern int update_touch_rawdata(void);
 
 extern void last_touch_events_collect(int slot, int state);
 
+int xiaomi_touch_set_suspend_state(int state);
+
 extern int notify_gesture_single_tap(void);
 
 extern int update_fod_press_status(int value);
-
-int xiaomi_touch_set_suspend_state(int state);
 
 #endif
