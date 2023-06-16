@@ -82,7 +82,9 @@ enum MODE_TYPE {
 
 struct xiaomi_touch_interface {
 	int thp_cmd_buf[MAX_BUF_SIZE];
+	char thp_cmd_data_buf[MAX_BUF_SIZE];
 	int thp_cmd_size;
+	int thp_cmd_data_size;
 	int touch_mode[Touch_Mode_NUM][VALUE_TYPE_SIZE];
 	int (*setModeValue)(int Mode, int value);
 	int (*setModeLongValue)(int Mode, int value_len, int *value);
@@ -195,5 +197,6 @@ extern int notify_gesture_single_tap(void);
 
 extern int update_fod_press_status(int value);
 
+extern void thp_send_cmd_to_hal(int cmd, int value);
 
 #endif
