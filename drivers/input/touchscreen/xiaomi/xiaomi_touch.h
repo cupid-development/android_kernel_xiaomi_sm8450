@@ -121,6 +121,7 @@ struct xiaomi_touch_interface {
 	int (*get_touch_x_resolution)(void);
 	int (*get_touch_y_resolution)(void);
 	int (*enable_touch_raw)(int en);
+	int (*enable_clicktouch_raw)(int count);
 	int (*enable_touch_delta)(bool en);
 	u8 (*panel_vendor_read)(void);
 	u8 (*panel_color_read)(void);
@@ -215,6 +216,8 @@ extern int xiaomitouch_register_modedata(int touchId,
 extern int copy_touch_rawdata(char *raw_base, int len);
 
 extern int update_touch_rawdata(void);
+
+extern int update_clicktouch_raw(void);
 
 extern void last_touch_events_collect(int slot, int state);
 
