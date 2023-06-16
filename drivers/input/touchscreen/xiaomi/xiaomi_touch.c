@@ -1058,21 +1058,24 @@ void update_active_status(bool status)
 	if (status != touch_data->active_status) {
 		touch_data->active_status = status;
 		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
-				 "touch_active_status");
+			     "touch_active_status");
 	}
 }
 EXPORT_SYMBOL_GPL(update_active_status);
 
 static ssize_t touch_active_status_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+					struct device_attribute *attr,
+					char *buf)
 {
 	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
 
-	return snprintf(buf, PAGE_SIZE, "%d\n", pdata->touch_data[0]->active_status);
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			pdata->touch_data[0]->active_status);
 }
 
 static ssize_t touch_finger_status_store(struct device *dev,
-					 struct device_attribute *attr, const char *buf, size_t count)
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 	unsigned int input;
@@ -1083,14 +1086,16 @@ static ssize_t touch_finger_status_store(struct device *dev,
 	touch_data = touch_pdata->touch_data[0];
 
 	if (sscanf(buf, "%d", &input) < 0)
-			return -EINVAL;
+		return -EINVAL;
 
 	if (input != touch_data->finger_status) {
 		touch_data->finger_status = input;
-		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL, "touch_finger_status");
+		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+			     "touch_finger_status");
 		if (input != 0 && input != touch_data->active_status) {
 			touch_data->active_status = true;
-			sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL, "touch_active_status");
+			sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+				     "touch_active_status");
 		}
 	}
 
@@ -1098,7 +1103,8 @@ static ssize_t touch_finger_status_store(struct device *dev,
 }
 
 static ssize_t touch_finger_status_show(struct device *dev,
-					 struct device_attribute *attr, char *buf)
+					struct device_attribute *attr,
+					char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 
@@ -1117,13 +1123,12 @@ void update_touch_irq_no(int irq_no)
 	}
 
 	touch_pdata->touch_data[0]->irq_no = irq_no;
-	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
-			 "touch_irq_no");
+	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL, "touch_irq_no");
 }
 EXPORT_SYMBOL_GPL(update_touch_irq_no);
 
 static ssize_t touch_irq_no_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+				 struct device_attribute *attr, char *buf)
 {
 	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
 
@@ -1265,7 +1270,8 @@ static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
 static DEVICE_ATTR(touch_active_status, (0664), touch_active_status_show, NULL);
 
-static DEVICE_ATTR(touch_finger_status, (0664), touch_finger_status_show, touch_finger_status_store);
+static DEVICE_ATTR(touch_finger_status, (0664), touch_finger_status_show,
+		   touch_finger_status_store);
 
 static DEVICE_ATTR(touch_irq_no, (0664), touch_irq_no_show, NULL);
 
