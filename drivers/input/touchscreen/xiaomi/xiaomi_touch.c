@@ -1045,6 +1045,34 @@ static ssize_t xiaomi_touch_suspend_state(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d\n", touch_pdata->suspend_state);
 }
 
+void update_active_status(bool status)
+{
+	struct xiaomi_touch_interface *touch_data = NULL;
+
+	if (!touch_pdata) {
+		return;
+	}
+
+	touch_data = touch_pdata->touch_data[0];
+
+	if (status != touch_data->active_status) {
+		touch_data->active_status = status;
+		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+			     "touch_active_status");
+	}
+}
+EXPORT_SYMBOL_GPL(update_active_status);
+
+static ssize_t touch_active_status_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			pdata->touch_data[0]->active_status);
+}
+
 int update_fod_press_status(int value)
 {
 	struct xiaomi_touch *dev = NULL;
@@ -1178,6 +1206,8 @@ static DEVICE_ATTR(gesture_single_tap_state, (0664),
 
 static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
+static DEVICE_ATTR(touch_active_status, (0664), touch_active_status_show, NULL);
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
@@ -1205,6 +1235,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_fod_press_status.attr,
 	&dev_attr_gesture_single_tap_state.attr,
 	&dev_attr_resolution_factor.attr,
+	&dev_attr_touch_active_status.attr,
 	NULL,
 };
 
