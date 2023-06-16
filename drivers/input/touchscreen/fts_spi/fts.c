@@ -3638,6 +3638,8 @@ static DEVICE_ATTR(touchgame, (S_IRUGO | S_IWUSR | S_IWGRP), fts_touchgame_show,
 #endif
 static DEVICE_ATTR(fod_area, (S_IRUGO | S_IWUSR | S_IWGRP), fts_fod_area_show,
 		   fts_fod_area_store);
+static DEVICE_ATTR(cmd_fifo, (S_IRUGO | S_IWUSR | S_IWGRP), fts_cmdfifo_show,
+		   NULL);
 static struct attribute *fts_attr_group[] = {
 	&dev_attr_fwupdate.attr,
 	&dev_attr_appid.attr,
