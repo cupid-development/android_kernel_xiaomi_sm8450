@@ -151,10 +151,9 @@ static int fts_set_cur_value(int mode, int value);
 #endif
 extern int power_supply_is_system_supplied(void);
 
-extern void touch_irq_boost(void);
-
 #ifdef CONFIG_FTS_BOOST
 #define EVENT_INPUT 0x1
+extern void touch_irq_boost(void);
 extern void lpm_disable_for_dev(bool on, char event_dev);
 #endif
 #ifdef CONFIG_FTS_POWERSUPPLY_CB
@@ -4919,7 +4918,9 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 		logError(1, "%s %s debug for sleep", tag, __func__);
 	}
 
+#ifdef CONFIG_FTS_BOOST
 	touch_irq_boost();
+#endif
 
 	if (!info->tp_pm_suspend) {
 		pm_stay_awake(info->dev);
