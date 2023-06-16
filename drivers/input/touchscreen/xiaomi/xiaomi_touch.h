@@ -36,6 +36,17 @@
 #define RAW_BUF_NUM 4
 #define THP_CMD_BASE 1000
 
+#define XIAOMI_TOUCH_UTC_PRINT(tag)                                                   \
+	do {                                                                          \
+		struct timespec64 ts;                                                 \
+		struct tm tm;                                                         \
+		ktime_get_real_ts64(&ts);                                             \
+		time64_to_tm(ts.tv_sec, 0, &tm);                                      \
+		pr_err("%s [xiaomi_touch_utc] [%d-%02d-%02d %02d:%02d:%02d.%06lu]\n", \
+		       tag, tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,             \
+		       tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec / 1000);          \
+	} while (0)
+
 enum suspend_state {
 	XIAOMI_TOUCH_RESUME = 0,
 	XIAOMI_TOUCH_SUSPEND,
