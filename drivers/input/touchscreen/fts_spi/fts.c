@@ -9762,10 +9762,11 @@ static int fts_probe(struct spi_device *client)
 	xiaomi_touch_interfaces.get_touch_y_resolution = fts_get_y_resolution;
 	xiaomi_touch_interfaces.get_touch_super_resolution_factor =
 		fts_get_touch_super_resolution_factor;
+	xiaomi_touch_interfaces.enable_clicktouch_raw =
+		fts_enable_click_touch_raw;
 	xiaomi_touch_interfaces.set_up_interrupt_mode =
 		fts_set_up_interrupts_mode;
 	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
-	register_frame_count_change_listener(fts_enable_click_touch_raw);
 	fts_read_touchmode_data();
 	fts_init_touchmode_data();
 	fts_info->enable_touch_delta = 1;
