@@ -151,8 +151,8 @@ struct xiaomi_touch {
 	struct mutex  mutex;
 	struct mutex  palm_mutex;
 	struct mutex  prox_mutex;
-	struct mutex gesture_single_tap_mutex;
-	struct mutex fod_press_status_mutex;
+	struct mutex  gesture_single_tap_mutex;
+	struct mutex  fod_press_status_mutex;
 	wait_queue_head_t 	wait_queue;
 };
 
