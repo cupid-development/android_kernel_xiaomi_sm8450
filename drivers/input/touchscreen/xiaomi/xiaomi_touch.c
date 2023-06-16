@@ -1073,6 +1073,49 @@ static ssize_t touch_active_status_show(struct device *dev,
 			pdata->touch_data[0]->active_status);
 }
 
+static ssize_t touch_finger_status_store(struct device *dev,
+					 struct device_attribute *attr,
+					 const char *buf, size_t count)
+{
+	struct xiaomi_touch_interface *touch_data = NULL;
+	unsigned int input;
+
+	if (!touch_pdata) {
+		return -ENOMEM;
+	}
+	touch_data = touch_pdata->touch_data[0];
+
+	if (sscanf(buf, "%d", &input) < 0)
+		return -EINVAL;
+
+	if (input != touch_data->finger_status) {
+		touch_data->finger_status = input;
+		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+			     "touch_finger_status");
+		if (input != 0 && input != touch_data->active_status) {
+			touch_data->active_status = true;
+			sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+				     "touch_active_status");
+		}
+	}
+
+	return count;
+}
+
+static ssize_t touch_finger_status_show(struct device *dev,
+					struct device_attribute *attr,
+					char *buf)
+{
+	struct xiaomi_touch_interface *touch_data = NULL;
+
+	if (!touch_pdata) {
+		return -ENOMEM;
+	}
+	touch_data = touch_pdata->touch_data[0];
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", touch_data->finger_status);
+}
+
 int update_fod_press_status(int value)
 {
 	struct xiaomi_touch *dev = NULL;
@@ -1208,6 +1251,9 @@ static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
 static DEVICE_ATTR(touch_active_status, (0664), touch_active_status_show, NULL);
 
+static DEVICE_ATTR(touch_finger_status, (0664), touch_finger_status_show,
+		   touch_finger_status_store);
+
 static struct attribute *touch_attr_group[] = {
 	&dev_attr_enable_touch_raw.attr,
 	&dev_attr_enable_touch_delta.attr,
@@ -1236,6 +1282,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_gesture_single_tap_state.attr,
 	&dev_attr_resolution_factor.attr,
 	&dev_attr_touch_active_status.attr,
+	&dev_attr_touch_finger_status.attr,
 	NULL,
 };
 
