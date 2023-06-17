@@ -1314,6 +1314,37 @@ static ssize_t touch_thp_film_store(struct device *dev,
 	return count;
 }
 
+static ssize_t touch_thp_mem_notify_show(struct device *dev,
+					 struct device_attribute *attr,
+					 char *buf)
+
+{
+	return snprintf(buf, PAGE_SIZE, "%d", 1);
+}
+
+static ssize_t touch_thp_mem_notify_store(struct device *dev,
+					  struct device_attribute *attr,
+					  const char *buf, size_t count)
+{
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+	unsigned int input;
+
+	if (!pdata) {
+		return -EXDEV;
+	}
+
+	if (sscanf(buf, "%d", &input) < 0) {
+		return -EINVAL;
+	}
+
+	if (input == 1) {
+		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+			     "touch_thp_mem_notify");
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR(touch_thp_cmd_data, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   thp_cmd_data_show, thp_cmd_data_store);
 
@@ -1343,6 +1374,9 @@ static DEVICE_ATTR(touch_thp_noisefilter, (S_IRUGO | S_IWUSR | S_IWGRP),
 
 static DEVICE_ATTR(touch_thp_film, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   touch_thp_film_show, touch_thp_film_store);
+
+static DEVICE_ATTR(touch_thp_mem_notify, (S_IRUGO | S_IWUSR | S_IWGRP),
+		   touch_thp_mem_notify_show, touch_thp_mem_notify_store);
 
 static DEVICE_ATTR(enable_touch_raw, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   enable_touchraw_show, enable_touchraw_store);
@@ -1416,6 +1450,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_touch_thp_dump.attr,
 	&dev_attr_touch_thp_noisefilter.attr,
 	&dev_attr_touch_thp_film.attr,
+	&dev_attr_touch_thp_mem_notify.attr,
 	&dev_attr_palm_sensor.attr,
 	&dev_attr_palm_sensor_data.attr,
 	&dev_attr_prox_sensor.attr,
