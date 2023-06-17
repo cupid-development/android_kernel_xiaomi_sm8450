@@ -128,6 +128,7 @@ struct xiaomi_touch_interface {
 	u8 (*panel_display_read)(void);
 	char (*touch_vendor_read)(void);
 	int (*get_touch_super_resolution_factor)(void);
+	int (*set_up_interrupt_mode)(int en);
 	int long_mode_len;
 	int long_mode_value[MAX_BUF_SIZE];
 
