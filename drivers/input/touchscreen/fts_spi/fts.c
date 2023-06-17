@@ -2530,7 +2530,6 @@ static int get_ms_strength_data(struct fts_ts_info *info)
 	return node_data_size * BYTES_PER_NODE;
 }
 
-#ifdef TOUCH_THP_SUPPORT
 #define CRC32_POLYNOMIAL 0xE89061DB
 
 /***********************************************************************************
@@ -2659,6 +2658,70 @@ static int get_slot_trackingId(struct fts_ts_info *info)
 	return id;
 }
 
+static int fts_read_thp_frame(struct fts_ts_info *info)
+{
+	int thp_addr = 0x20010000;
+	int node_data_size = 0;
+	int force_len, sense_len;
+	int ret;
+	int crc = 0;
+	int retry = 3;
+	static u64 thp_cnt = 0;
+	struct timespec64 ts;
+	struct rtc_time tm;
+
+	force_len = getForceLen();
+	sense_len = getSenseLen();
+	node_data_size =
+		(force_len * sense_len + force_len + sense_len) * 2 + 64;
+
+	while (retry) {
+		ret = fts_writeReadU8UX(FTS_CMD_FRAMEBUFFER_R, BITS_16,
+					thp_addr, info->thp_frame.thp_frame_buf,
+					node_data_size, DUMMY_FRAMEBUFFER);
+		if (ret < OK) {
+			logError(1,
+				 "%s %s: error while reading thp frame %08X\n",
+				 tag, __func__, ret);
+			return -1;
+		}
+		crc = thp_crc32_check(
+			(int *)(&info->thp_frame.thp_frame_buf[0x14]),
+			node_data_size / 4 - 5);
+		if (crc == ((int *)info->thp_frame.thp_frame_buf)[1]) {
+			ktime_get_real_ts64(&ts);
+			info->thp_frame.time_ns = timespec64_to_ns(&ts);
+			rtc_time64_to_tm(ts.tv_sec, &tm);
+			info->thp_frame.frm_cnt = thp_cnt++;
+			/*
+			printk("raw time[%d-%02d-%02d %02d:%02d:%02d.%06lu]\n",
+					tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+					tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec/1000);
+			*/
+			break;
+		} else
+			logError(1, "%s %s crc mismatch retry to read\n", tag,
+				 __func__);
+
+		retry--;
+	}
+	/*
+	logError(0, "%s %s:%d\n", tag, __func__,  ((unsigned short *)info->thp_frame.thp_frame_buf)[1]);
+	logError(0, "%s %s calcrc:%08x\n", tag, __func__,  crc);
+	logError(0, "%s %s readcrc:%08x\n", tag, __func__,	 ((int *)info->thp_frame.thp_frame_buf)[1]);
+	logError(0, "%s %s frame no:%d\n", tag, __func__,    ((short *)info->thp_frame.thp_frame_buf)[1]);
+	logError(0, "%s %s %08x\n", tag, __func__,  ((int *)info->thp_frame.thp_frame_buf)[0]);
+	logError(0, "%s %s frame no:%d\n", tag, __func__,	((short *)info->thp_frame.thp_frame_buf)[1]);
+	logError(0, "%s %s event info:%d\n", tag, __func__,  info->thp_frame.thp_frame_buf[0x16]);
+	logError(0, "%s %s noise lvl:%d\n", tag, __func__,  info->thp_frame.thp_frame_buf[0x17]);
+	logError(0, "%s %s scan mode:%d\n", tag, __func__,  info->thp_frame.thp_frame_buf[0x18]);
+	logError(0, "%s %s scan rate:%d\n", tag, __func__,  info->thp_frame.thp_frame_buf[0x19]);
+	logError(0, "%s %s row:%d col:%d\n", tag, __func__,  info->thp_frame.thp_frame_buf[0x30], info->thp_frame.thp_frame_buf[0x31]);
+	logError(0, "%s %s frame no:%d\n", tag, __func__,	((short *)info->thp_frame.thp_frame_buf)[14]);
+*/
+	return node_data_size + sizeof(long long) + sizeof(struct timespec64);
+}
+
 static const char *fts_get_config(struct fts_ts_info *info);
 
 int fts_enable_touch_delta(bool en)
@@ -2669,6 +2732,51 @@ int fts_enable_touch_delta(bool en)
 		fts_info->enable_touch_delta = false;
 	logError(1, "%s %s enable touch delta:%d\n", tag, __func__,
 		 fts_info->enable_touch_delta);
+	return 0;
+}
+
+void fts_enable_thp_onoff(int enable)
+{
+	u8 cmd_off[] = { 0xa0, 0x00, 0x00 };
+	u8 cmd_on[] = { 0xa0, 0x00, 0x01 };
+	u8 thp[] = { 0xc0, 0x21, 0x00 };
+	int res = OK;
+
+	logError(1, "%s %s: on:%d\n", tag, __func__, enable);
+
+	fts_disableInterrupt();
+	res = fts_write_dma_safe(cmd_off, ARRAY_SIZE(cmd_off));
+	if (res < OK) {
+		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+			 __func__, res);
+		return;
+	}
+
+	thp[2] = (enable == 1);
+	res = fts_write_dma_safe(thp, ARRAY_SIZE(thp));
+	if (res < OK) {
+		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+			 __func__, res);
+		return;
+	}
+	fts_info->enable_touch_raw = enable;
+
+	res = fts_write_dma_safe(cmd_on, ARRAY_SIZE(cmd_on));
+	if (res >= OK) {
+		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+			 __func__, res);
+		return;
+	}
+
+	msleep(12);
+	fts_enableInterrupt();
+
+	return;
+}
+
+int fts_enable_touch_raw(bool en)
+{
+	fts_enable_thp_onoff(en);
 	return 0;
 }
 
@@ -4946,7 +5054,15 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 #endif
 	info->temp_touch_id = 0;
 	cpu_latency_qos_add_request(&info->pm_qos_req_irq, 0);
-	if (info->clicktouch_count) {
+	if (info->enable_touch_raw) {
+		count = fts_read_thp_frame(info);
+		copy_touch_rawdata((u8 *)(&info->thp_frame), count);
+		clear_interrupt();
+		update_touch_rawdata();
+		count = 0;
+		if (info->thp_frame.thp_frame_buf[0x16] == 0)
+			goto end;
+	} else if (info->clicktouch_count) {
 		count = get_ms_strength_data(info);
 		update_knock_data((u8 *)info->strength_buf, count,
 				  info->clicktouch_num -
@@ -5009,6 +5125,7 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 		lpm_disable_for_dev(false, EVENT_INPUT);
 #endif
 
+end:
 	cpu_latency_qos_remove_request(&info->pm_qos_req_irq);
 	pm_relax(info->dev);
 	return IRQ_HANDLED;
@@ -6776,6 +6893,47 @@ static int fts_set_cur_value(int mode, int value)
 		return fts_change_enter_doze_time(value);
 #endif
 
+	if (mode == THP_LOCK_SCAN_MODE && fts_info && value >= 0) {
+		if (fts_info->enable_touch_raw)
+			return fts_lock_scan_mode(value);
+		return 0;
+	}
+
+	if (mode == THP_FOD_DOWNUP_CTL && fts_info && value >= 0) {
+		if (fts_info->enable_touch_raw)
+			fts_set_fod_downup(fts_info, value);
+		return 0;
+	}
+
+	/*
+	if (mode == THP_SELF_CAP_SCAN && fts_info && value >= 0) {
+		if (fts_info->enable_touch_raw)
+			fts_enable_thp_selfcap_scan(value);
+		return 0;
+	}
+*/
+
+	if (mode == THP_REPORT_POINT_SWITCH && fts_info && value >= 0) {
+		fts_enable_thp_onoff(value);
+		return 0;
+	}
+
+	if (mode == THP_HAL_INIT_READY && fts_info && value >= 0) {
+		schedule_delayed_work(&fts_info->thp_signal_work,
+				      msecs_to_jiffies(1000));
+		return 0;
+	}
+
+	if (mode == THP_HAL_REPORT_RATE && fts_info && value >= 0) {
+		return fts_set_report_rate(fts_info, value);
+	}
+
+	if (mode == THP_HAL_VSYNC_MODE && fts_info && value >= 0) {
+		if (fts_info->enable_touch_raw)
+			fts_set_vsync_mode(fts_info, value);
+		return 0;
+	}
+
 	if (mode < Touch_Mode_NUM && mode >= 0) {
 		xiaomi_touch_interfaces.touch_mode[mode][SET_CUR_VALUE] = value;
 
@@ -7194,6 +7352,16 @@ static void fts_resume_work(struct work_struct *work)
 	if (info->palm_sensor_switch) {
 		fts_palm_sensor_cmd(info->palm_sensor_switch);
 	}
+
+	if (!info->enable_touch_raw && info->enable_thp_fw) {
+		fts_enable_thp_onoff(0);
+	}
+	if (info->enable_touch_raw) {
+		if (info->enable_thp_fw && info->reprot_rate >= 0) {
+			fts_set_report_rate(info, info->reprot_rate);
+		}
+		fts_up_interrups_mode(info, 1);
+	}
 #endif
 	xiaomi_touch_set_suspend_state(XIAOMI_TOUCH_RESUME);
 
@@ -7300,6 +7468,11 @@ static void fts_fps_notify_work(struct work_struct *work)
 	}
 	fts_enableInterrupt();
 #endif
+}
+
+static void fts_thp_signal_work(struct work_struct *work)
+{
+	return;
 }
 
 /**@}*/
@@ -8337,6 +8510,8 @@ static int parse_dt(struct device *dev, struct fts_hw_platform_data *bdata)
 	bdata->swap_x = of_property_read_bool(np, "fts,swap-x");
 	bdata->swap_y = of_property_read_bool(np, "fts,swap-y");
 	bdata->support_fod = of_property_read_bool(np, "fts,support-fod");
+	bdata->support_thp = of_property_read_bool(np, "fts,support-thp");
+	bdata->support_thp_fw = of_property_read_bool(np, "fts,support-thp-fw");
 	bdata->support_vsync_mode =
 		of_property_read_bool(np, "fts,support-vsync-mode");
 
@@ -9233,6 +9408,7 @@ static int fts_probe(struct spi_device *client)
 	INIT_WORK(&info->suspend_work, fts_suspend_work);
 	INIT_WORK(&info->sleep_work, fts_ts_sleep_work);
 	INIT_WORK(&info->fps_notify_work, fts_fps_notify_work);
+	INIT_DELAYED_WORK(&info->thp_signal_work, fts_thp_signal_work);
 	init_completion(&info->tp_reset_completion);
 
 	logError(0, "%s SET Input Device Property: \n", tag);
@@ -9580,6 +9756,8 @@ static int fts_probe(struct spi_device *client)
 	xiaomi_touch_interfaces.panel_display_read = fts_panel_display_read;
 	xiaomi_touch_interfaces.touch_vendor_read = fts_touch_vendor_read;
 	xiaomi_touch_interfaces.setModeLongValue = fts_set_mode_long_value;
+	xiaomi_touch_interfaces.enable_touch_raw = fts_enable_touch_raw;
+	xiaomi_touch_interfaces.enable_touch_delta = fts_enable_touch_delta;
 	xiaomi_touch_interfaces.get_touch_rx_num = fts_get_rx_num;
 	xiaomi_touch_interfaces.get_touch_tx_num = fts_get_tx_num;
 	xiaomi_touch_interfaces.get_touch_x_resolution = fts_get_x_resolution;
@@ -9593,6 +9771,11 @@ static int fts_probe(struct spi_device *client)
 	fts_read_touchmode_data();
 	fts_init_touchmode_data();
 	fts_info->enable_touch_delta = 1;
+	fts_info->enable_thp_fw = fts_info->board->support_thp_fw;
+	fts_info->enable_touch_raw = fts_info->board->support_thp;
+	if (!fts_info->board->support_thp && fts_info->board->support_thp_fw) {
+		fts_enable_thp_onoff(0);
+	}
 #endif
 
 #ifndef FW_UPDATE_ON_PROBE
