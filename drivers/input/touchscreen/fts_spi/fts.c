@@ -5064,9 +5064,7 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 			goto end;
 	} else if (info->clicktouch_count) {
 		count = get_ms_strength_data(info);
-		update_knock_data((u8 *)info->strength_buf, count,
-				  info->clicktouch_num -
-					  info->clicktouch_count);
+		copy_touch_rawdata((u8 *)info->strength_buf, count);
 		count = 0;
 	}
 	error = fts_writeReadU8UX(regAdd, 0, 0, data, FIFO_EVENT_SIZE,
@@ -5115,7 +5113,7 @@ static irqreturn_t fts_event_handler(int irq, void *ts_info)
 	if (info->clicktouch_num) {
 		if (info->touch_id && info->clicktouch_count) {
 			info->clicktouch_count--;
-			knock_data_notify();
+			update_clicktouch_raw();
 		} else if (!info->touch_id)
 			info->clicktouch_count = info->clicktouch_num;
 	}
