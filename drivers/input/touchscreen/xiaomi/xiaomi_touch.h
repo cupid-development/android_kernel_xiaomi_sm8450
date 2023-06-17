@@ -132,6 +132,7 @@ struct xiaomi_touch_interface {
 	int long_mode_value[MAX_BUF_SIZE];
 
 	bool is_enable_touchraw;
+	int palm_sensor_onoff;
 	int thp_downthreshold;
 	int thp_upthreshold;
 	int thp_movethreshold;
