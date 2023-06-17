@@ -61,9 +61,7 @@
 /*** save power mode ***/
 #define FTS_POWER_SAVE_MODE
 #define FTS_VSYNC_MODE_ENABLE
-#define TOUCH_THP_SUPPORT
 /*#define TOUCH_IRQ_CPU_AFFINITY*/
-#define TOUCH_THP_FW
 /*#define TOUCH_ENABLE_RAW_CRC*/
 
 #define DRIVER_TEST
