@@ -1224,6 +1224,10 @@ PHONY += headers
 techpack-dirs := $(shell find $(srctree)/techpack -maxdepth 1 -mindepth 1 -type d -not -name ".*")
 techpack-dirs := $(subst $(srctree)/,,$(techpack-dirs))
 
+ext-mod-dir := ../sm8450-modules
+ext-mod-dirs := $(ext-mod-dir)/qcom/opensource/audio-kernel $(ext-mod-dir)/qcom/opensource/display-drivers $(ext-mod-dir)/qcom/opensource/video-kernel
+ext-mod-dirs := $(subst $(srctree)/,,$(ext-mod-dirs))
+
 #Default location for installed headers
 ifeq ($(KBUILD_EXTMOD),)
 PHONY += archheaders archscripts
@@ -1254,6 +1258,9 @@ endif
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)include/uapi
 	$(Q)$(MAKE) $(hdr-inst)=$(hdr-prefix)arch/$(SRCARCH)/include/uapi
 	$(Q)for d in $(techpack-dirs); do \
+		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
+	done
+	$(Q)for d in $(ext-mod-dirs); do \
 		$(MAKE) $(hdr-inst)=$$d/include/uapi; \
 	done
 
