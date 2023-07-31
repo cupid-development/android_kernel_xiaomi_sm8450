@@ -534,6 +534,8 @@ KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE :=
 KBUILD_LDFLAGS :=
 CLANG_FLAGS :=
+# For use when analysis needs to call subshell with CC before cc-wrapper is built.
+NO_WRAPPER_CC := $(CC)
 
 CC := scripts/basic/cc-wrapper $(CC)
 
@@ -550,6 +552,7 @@ export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
 export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 export PAHOLE_FLAGS
+export NO_WRAPPER_CC
 
 # Files to ignore in find ... statements
 
@@ -596,7 +599,8 @@ endif
 # Some architectures define CROSS_COMPILE in arch/$(SRCARCH)/Makefile.
 # CC_VERSION_TEXT is referenced from Kconfig (so it needs export),
 # and from include/config/auto.conf.cmd to detect the compiler upgrade.
-CC_VERSION_TEXT = $(subst $(pound),,$(shell LC_ALL=C $(CC) --version 2>/dev/null | head -n 1))
+# cc-wrapper may not yet be compiled, use NO_WRAPPER_CC.
+CC_VERSION_TEXT = $(subst $(pound),,$(shell LC_ALL=C $(NO_WRAPPER_CC) --version 2>/dev/null | head -n 1))
 
 ifneq ($(findstring clang,$(CC_VERSION_TEXT)),)
 include $(srctree)/scripts/Makefile.clang
