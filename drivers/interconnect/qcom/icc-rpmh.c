@@ -14,7 +14,9 @@
 #include <soc/qcom/socinfo.h>
 
 #include "bcm-voter.h"
+#ifdef CONFIG_INTERCONNECT_QCOM_DEBUG
 #include "icc-debug.h"
+#endif
 #include "icc-rpmh.h"
 #include "qnoc-qos.h"
 
@@ -487,7 +489,9 @@ int qcom_icc_rpmh_probe(struct platform_device *pdev)
 	provider->set = qcom_icc_set;
 	provider->aggregate = qcom_icc_aggregate;
 
+#ifdef CONFIG_INTERCONNECT_QCOM_DEBUG
 	qcom_icc_debug_register(provider);
+#endif
 
 	mutex_lock(&probe_list_lock);
 	list_add_tail(&qp->probe_list, &qnoc_probe_list);
@@ -515,7 +519,9 @@ int qcom_icc_rpmh_remove(struct platform_device *pdev)
 	struct icc_provider *provider = &qp->provider;
 	struct icc_node *n;
 
+#ifdef CONFIG_INTERCONNECT_QCOM_DEBUG
 	qcom_icc_debug_unregister(provider);
+#endif
 
 	list_for_each_entry(n, &provider->nodes, node_list) {
 		icc_node_del(n);
