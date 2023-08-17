@@ -858,11 +858,14 @@ static u32 msm_pcie_keep_resources_on;
 static struct workqueue_struct *mpcie_wq;
 
 /* debugfs values */
+#ifdef CONFIG_DEBUG_FS
 static u32 rc_sel = BIT(0);
 static u32 base_sel;
 static u32 wr_offset;
 static u32 wr_mask;
 static u32 wr_value;
+#endif
+
 static u32 corr_counter_limit = 5;
 
 /* CRC8 table for BDF to SID translation */
@@ -1282,6 +1285,7 @@ static void pcie_phy_dump(struct msm_pcie_dev_t *dev)
 	}
 }
 
+#ifdef CONFIG_DEBUG_FS
 static int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
 						u32 offset)
 {
@@ -1294,6 +1298,7 @@ static int msm_pcie_check_align(struct msm_pcie_dev_t *dev,
 
 	return 0;
 }
+#endif
 
 static bool msm_pcie_dll_link_active(struct msm_pcie_dev_t *dev)
 {
@@ -1399,6 +1404,7 @@ static void pcie_dm_core_dump(struct msm_pcie_dev_t *dev)
 	}
 }
 
+#ifdef CONFIG_DEBUG_FS
 static void msm_pcie_show_status(struct msm_pcie_dev_t *dev)
 {
 	PCIE_DBG_FS(dev, "PCIe: RC%d is %s enumerated\n",
@@ -1915,6 +1921,7 @@ int msm_pcie_debug_info(struct pci_dev *dev, u32 option, u32 base,
 	return ret;
 }
 EXPORT_SYMBOL(msm_pcie_debug_info);
+#endif
 
 #ifdef CONFIG_SYSFS
 static ssize_t link_check_max_count_show(struct device *dev,
