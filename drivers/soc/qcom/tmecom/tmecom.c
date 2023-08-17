@@ -287,7 +287,9 @@ static int tmecom_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev, "tmecom probe success\n");
 	return 0;
+#if IS_ENABLED(CONFIG_DEBUG_FS)
 err:
+#endif /* CONFIG_DEBUG_FS */
 	mbox_free_channel(tdev->chan);
 	return -ENOMEM;
 }
