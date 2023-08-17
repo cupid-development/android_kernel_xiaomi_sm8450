@@ -994,8 +994,10 @@ static void mhi_netdev_remove(struct mhi_device *mhi_dev)
 	free_netdev(mhi_netdev->ndev);
 	mhi_netdev->ndev = NULL;
 
+#ifdef CONFIG_DEBUG_FS
 	if (!IS_ERR_OR_NULL(mhi_netdev->dentry))
 		debugfs_remove_recursive(mhi_netdev->dentry);
+#endif
 
 	if (!mhi_netdev->rsc_parent)
 		mhi_netdev_free_pool(mhi_netdev);
@@ -1170,7 +1172,9 @@ module_init(mhi_netdev_init);
 
 static void __exit mhi_netdev_exit(void)
 {
+#ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(dentry);
+#endif
 
 	mhi_driver_unregister(&mhi_netdev_driver);
 }
