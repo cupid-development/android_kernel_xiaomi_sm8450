@@ -358,6 +358,7 @@ static const struct reg_offset_data bam_v1_7_reg_info[] = {
 		pr_debug(msg, ##args); \
 } while (0)
 #else
+#define DMA_IPC_LOGPAGES 0
 #define DMA_BAM_DBG(dev, msg, args...)             pr_debug(msg, ##args)
 #endif
 
