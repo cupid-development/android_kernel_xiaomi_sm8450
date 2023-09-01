@@ -453,17 +453,17 @@ static void kgsl_count_hw_fences(struct kgsl_drawobj_sync_event *event, struct d
 
 }
 
-static void kgsl_get_fence_info(struct dma_fence *fence,
-	struct event_fence_info *info_ptr, void *priv)
+void kgsl_get_fence_info(struct kgsl_drawobj_sync_event *event)
 {
 	unsigned int num_fences;
-	struct dma_fence **fences;
+	struct dma_fence *fence, **fences;
 	struct dma_fence_array *array;
-	struct kgsl_drawobj_sync_event *event = priv;
+	struct event_fence_info *info_ptr = event->priv;
 	int i;
 
-	array = to_dma_fence_array(fence);
+	fence = event->handle->fence;
 
+	array = to_dma_fence_array(fence);
 	if (array != NULL) {
 		num_fences = array->num_fences;
 		fences = array->fences;
@@ -508,7 +508,7 @@ count:
 }
 
 struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
-	bool (*func)(void *priv), void *priv, struct event_fence_info *info_ptr)
+	bool (*func)(void *priv), void *priv)
 {
 	struct kgsl_sync_fence_cb *kcb;
 	struct dma_fence *fence;
@@ -528,8 +528,6 @@ struct kgsl_sync_fence_cb *kgsl_sync_fence_async_wait(int fd,
 	kcb->fence = fence;
 	kcb->priv = priv;
 	kcb->func = func;
-
-	kgsl_get_fence_info(fence, info_ptr, priv);
 
 	/* if status then error or signaled */
 	status = dma_fence_add_callback(fence, &kcb->fence_cb,
