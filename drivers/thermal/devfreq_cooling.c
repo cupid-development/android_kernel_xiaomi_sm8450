@@ -89,8 +89,8 @@ static int devfreq_cooling_set_cur_state(struct thermal_cooling_device *cdev,
 					 unsigned long state)
 {
 	struct devfreq_cooling_device *dfc = cdev->devdata;
-	struct devfreq *df = dfc->devfreq;
-	struct device *dev = df->dev.parent;
+	//struct devfreq *df = dfc->devfreq;
+	//struct device *dev = df->dev.parent;
 	unsigned long freq;
 
 	if (state == dfc->cooling_state)
