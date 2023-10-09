@@ -100,7 +100,6 @@ static const struct regmap_config eusb2_i2c_regmap = {
 	.max_register = 0xff,
 };
 
-
 static int eusb2_i2c_read_reg(struct eusb2_repeater *er, u8 reg, u8 *val)
 {
 	int ret;
@@ -457,7 +456,6 @@ static int eusb2_repeater_i2c_probe(struct i2c_client *client)
 	ret = usb_add_repeater_dev(&er->ur);
 	if (ret)
 		goto err_probe;
-	pr_info("%s success.\n", __func__);
 
 	return 0;
 

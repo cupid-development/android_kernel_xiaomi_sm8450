@@ -2944,7 +2944,6 @@ void dwc3_msm_notify_event(struct dwc3 *dwc,
 	u32 reg;
 	int i;
 
-	pr_info("%s : notify event is %d\n", __func__, event);
 	switch (event) {
 	case DWC3_CONTROLLER_ERROR_EVENT:
 		dev_info(mdwc->dev,
@@ -4506,7 +4505,7 @@ static int dwc3_msm_set_role(struct dwc3_msm *mdwc, enum usb_role role)
 	mutex_lock(&mdwc->role_switch_mutex);
 	cur_role = dwc3_msm_get_role(mdwc);
 
-	pr_info("cur_role:%s new_role:%s refcnt:%d\n", usb_role_string(cur_role),
+	dbg_log_string("cur_role:%s new_role:%s refcnt:%d\n", usb_role_string(cur_role),
 				usb_role_string(role), mdwc->refcnt_dp_usb);
 
 	/*
@@ -4822,10 +4821,8 @@ static int dwc3_start_stop_host(struct dwc3_msm *mdwc, bool start)
 			msleep(20);
 
 		dbg_log_string("stop_host_mode completed");
-		if (mdwc->id_state == DWC3_ID_GROUND){
-			dev_info(mdwc->dev, "DWC3 stop host mode not completed return EBUSY\n");
+		if (mdwc->id_state == DWC3_ID_GROUND)
 			return -EBUSY;
-		}
 	}
 
 	return 0;
@@ -4862,10 +4859,8 @@ static int dwc3_start_stop_device(struct dwc3_msm *mdwc, bool start)
 			msleep(20);
 
 		dbg_log_string("stop_device_mode completed");
-		if (mdwc->vbus_active){
-			dev_info(mdwc->dev, "DWC3 stop deivce mode not completed return EBUSY\n");
+		if (mdwc->vbus_active)
 			return -EBUSY;
-		}
 	}
 
 	return 0;
@@ -4977,7 +4972,6 @@ int dwc3_msm_set_dp_mode(struct device *dev, bool dp_connected, int lanes)
 		dwc3_start_stop_device(mdwc, true);
 	} else {
 		if (mdwc->in_host_mode || mdwc->in_device_mode) {
-			dev_info(mdwc->dev, "DWC3 in host mode or device mode return EBUSY\n");
 			ret = -EBUSY;
 			goto exit;
 		}
@@ -6280,7 +6274,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 	}
 
 	state = dwc3_drd_state_string(mdwc->drd_state);
-	dev_err(mdwc->dev, "%s state, mdwc->inputs is %d\n", state, mdwc->inputs);
+	dev_dbg(mdwc->dev, "%s state\n", state);
 	dbg_event(0xFF, state, 0);
 
 	/* Check OTG state */
@@ -6351,7 +6345,7 @@ static void dwc3_otg_sm_work(struct work_struct *w)
 		}
 
 		if (test_bit(WAIT_FOR_LPM, &mdwc->inputs)) {
-			dev_info(mdwc->dev, "still not in lpm, wait.\n");
+			dev_dbg(mdwc->dev, "still not in lpm, wait.\n");
 			dbg_event(0xFF, "WAIT_FOR_LPM", 0);
 			break;
 		}
