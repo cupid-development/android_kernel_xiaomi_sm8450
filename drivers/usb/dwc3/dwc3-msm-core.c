@@ -3301,14 +3301,14 @@ static void dwc3_set_phy_speed_flags(struct dwc3_msm *mdwc)
 			}
 		}
 	} else if (mdwc->drd_state == DRD_STATE_PERIPHERAL_SUSPEND) {
-		if(!dwc->gadget)
+		if (!dwc->gadget)
 			return;
-		else
-			if (dwc->gadget->speed == USB_SPEED_HIGH ||
-					dwc->gadget->speed == USB_SPEED_FULL)
-				mdwc->hs_phy->flags |= PHY_HSFS_MODE;
-			else if (dwc->gadget->speed == USB_SPEED_LOW)
-				mdwc->hs_phy->flags |= PHY_LS_MODE;
+
+		if (dwc->gadget->speed == USB_SPEED_HIGH ||
+			dwc->gadget->speed == USB_SPEED_FULL)
+			mdwc->hs_phy->flags |= PHY_HSFS_MODE;
+		else if (dwc->gadget->speed == USB_SPEED_LOW)
+			mdwc->hs_phy->flags |= PHY_LS_MODE;
 	}
 }
 
@@ -5108,18 +5108,6 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 
 	if (mdwc->dwc3)
 		return 0;
-	ret = usb_phy_init(mdwc->hs_phy);
-	if (ret) {
-		dev_err(mdwc->dev, "failed to init HS PHY\n");
-		goto err;
-	}
-	if (dwc3_msm_get_max_speed(mdwc) >= USB_SPEED_SUPER) {
-		ret = usb_phy_init(mdwc->ss_phy);
-		if (ret) {
-			dev_err(mdwc->dev, "failed to init SS PHY\n");
-			goto err;
-		}
-        }
 
 	ret = usb_phy_init(mdwc->hs_phy);
 	if (ret) {
@@ -6534,9 +6522,6 @@ static int dwc3_msm_pm_resume(struct device *dev)
 	dbg_event(0xFF, "PM Res", 0);
 
 	atomic_set(&mdwc->pm_suspended, 0);
-	/* Let DWC3 core complete determine if resume is needed */
-	if (!mdwc->in_host_mode)
-		return 0;
 
 	/* Let DWC3 core complete determine if resume is needed */
 	if (!mdwc->in_host_mode)
