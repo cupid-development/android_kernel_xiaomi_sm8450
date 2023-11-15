@@ -70,3 +70,4 @@ obj-$(CONFIG_WIGIG_SENSING_SPI)	+= wigig_sensing.o
 obj-$(CONFIG_KINECTICS_XR_NORDIC) += kxrctrl/
 obj-y				+= hwid/
 obj-$(CONFIG_LDO_WL2866D)	+= wl2866d.o
+obj-$(CONFIG_MMHARDWARE_DETECTION)	+= mmhardware_sysfs.o
