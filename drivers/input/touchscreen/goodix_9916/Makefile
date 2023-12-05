@@ -11,7 +11,8 @@ goodix_core-y := \
 	goodix_ts_gesture.o \
 	goodix_ts_inspect.o \
 	goodix_ts_tools.o \
-    	goodix_ts_utils.o \
+	goodix_ts_utils.o \
+	goodix_brl_normalize_coeffi.o \
 	mi_disp_notifier.o
 else
     KDIR = $(OUT)/obj/KERNEL_OBJ
