@@ -210,28 +210,8 @@ static void goodix_pdev_release(struct device *dev)
 	ts_info("goodix pdev released");
 	kfree(goodix_pdev);
 }
-static struct drm_panel *active_panel;
-static int ts_check_panel(struct device_node *np)
-{
-	int i;
-	int count;
-	struct device_node *node;
-	struct drm_panel *panel;
 
-	count = of_count_phandle_with_args(np, "panel", NULL);
-	if (count <= 0)
-		return -ENODEV;
-	for (i = 0; i < count; i++) {
-		node = of_parse_phandle(np, "panel", i);
-		panel = of_drm_find_panel(node);
-		of_node_put(node);
-		if (!IS_ERR(panel)) {
-			active_panel = panel;
-			return 0;
-		}
-	}
-	return PTR_ERR(panel);
-}
+struct device_node *gf_spi_dp;
 
 static int goodix_spi_probe(struct spi_device *spi)
 {
@@ -249,10 +229,10 @@ static int goodix_spi_probe(struct spi_device *spi)
 		ts_err("failed set spi mode, %d", ret);
 		return ret;
 	}
-	ret = ts_check_panel(dp);
-	if (ret < 0 && !display_name_status) {
-		ts_info("please add the panel name at dts config");
-	}
+	// ret = ts_check_panel(dp);
+	// if (ret < 0 && !display_name_status) {
+	// 	ts_info("please add the panel name at dts config");
+	// }
 	/* get ic type */
 	ret = goodix_get_ic_type(spi->dev.of_node);
 	if (ret < 0)
@@ -291,6 +271,7 @@ static int goodix_spi_probe(struct spi_device *spi)
 		ts_err("failed register goodix platform device, %d", ret);
 		goto err_pdev;
 	}
+	gf_spi_dp = dp;
 	ts_info("spi probe out");
 	return 0;
 
@@ -315,6 +296,9 @@ static const struct of_device_id spi_matchs[] = {
 	//	{.compatible = "goodix,gt9916S",},
 	{
 		.compatible = "xiaomi,l12-spi",
+	},
+	{
+		.compatible = "xiaomi,m11a-spi",
 	},
 	{},
 };
