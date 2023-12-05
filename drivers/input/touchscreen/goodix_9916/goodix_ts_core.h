@@ -67,6 +67,7 @@
 #define GTP_RESULT_FAIL 1
 #define GTP_RESULT_PASS 2
 #define CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI
+#define CONFIG_TOUCHSCREEN_QGKI_GOODIX
 
 #define PANEL_ORIENTATION_DEGREE_0 0 /* normal portrait orientation */
 #define PANEL_ORIENTATION_DEGREE_90 1 /* anticlockwise 90 degrees */
@@ -134,7 +135,7 @@ enum CHECKSUM_MODE {
 struct frame_head {
 	uint8_t sync;
 	uint16_t frame_index;
-	uint16_t cur_frame_len;
+	uint16_t cur_frame_len; // _3_2_
 	uint16_t next_frame_len;
 	uint32_t data_en; /* 0- 7 for pack_en; 8 - 31 for type en */
 	uint8_t touch_pack_index;
@@ -204,9 +205,9 @@ struct goodix_ic_info_misc { /* other data */
 	u32 fw_buffer_addr;
 	u16 fw_buffer_max_len;
 	u32 frame_data_addr;
-	u16 frame_data_head_len;
-	u16 fw_attr_len;
-	u16 fw_log_len;
+	u16 frame_data_head_len; // ok
+	u16 fw_attr_len; // ok
+	u16 fw_log_len; // ok
 	u8 pack_max_num;
 	u8 pack_compress_version;
 	u16 stylus_struct_len;
@@ -240,6 +241,7 @@ struct goodix_ic_info_misc { /* other data */
 };
 
 struct goodix_ic_info_other {
+	u16 normalize_k_version;
 	u32 irrigation_data_addr;
 	u32 algo_debug_data_addr;
 	u16 algo_debug_data_len;
@@ -364,6 +366,8 @@ enum ts_event_type {
 	EVENT_REQUEST = (1 << 2),
 	EVENT_GESTURE = (1 << 3),
 	EVENT_FRAME = (1 << 4),
+
+	EVENT_FOD = (1 << 7),
 };
 
 enum ts_request_type {
@@ -541,32 +545,33 @@ struct goodix_ts_core {
 	int init_stage;
 	struct platform_device *pdev;
 	struct goodix_fw_version fw_version;
-	struct goodix_ic_info ic_info;
+	struct goodix_ic_info ic_info; // ok
 	struct goodix_bus_interface *bus;
 	struct goodix_ts_board_data board_data;
-	struct goodix_ts_hw_ops *hw_ops;
+	struct goodix_ts_hw_ops *hw_ops; // ok
 	struct input_dev *input_dev;
 	struct input_dev *pen_dev;
-	struct class *goodix_tp_class;
+	struct class *goodix_tp_class; // ok
 	struct device *goodix_touch_dev;
 	/* TODO counld we remove this from core data? */
-	struct goodix_ts_event ts_event;
+	struct goodix_ts_event ts_event; // ok
 	unsigned long touch_id;
-	u8 eventsdata;
+	u8 eventsdata; // after shift
 
 	/* every pointer of this array represent a kind of config */
-	struct goodix_ic_config *ic_configs[GOODIX_MAX_CONFIG_GROUP];
-	struct regulator *avdd;
+	struct goodix_ic_config
+		*ic_configs[GOODIX_MAX_CONFIG_GROUP]; // after shift
+	struct regulator *avdd; // ok
 	struct regulator *iovdd;
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *pin_sta_active;
 	struct pinctrl_state *pin_sta_suspend;
 	struct pinctrl_state *pin_sta_boot;
 
-	int power_on;
+	int power_on; // after shift, corrected
 	int irq;
-	size_t irq_trig_cnt;
-	void *notifier_cookie;
+	size_t irq_trig_cnt; // after shift, corrected
+	void *notifier_cookie; // new member ok
 
 	atomic_t irq_enabled;
 	atomic_t suspended;
@@ -578,13 +583,13 @@ struct goodix_ts_core {
 	bool irq_priority_high;
 	bool doze_test;
 
-	struct notifier_block ts_notifier;
+	struct notifier_block ts_notifier; // correct
 	struct goodix_ts_esd ts_esd;
 
 #ifdef CONFIG_FB
 	struct notifier_block fb_notifier;
 #endif
-	struct notifier_block charger_notifier;
+	struct notifier_block charger_notifier; // correct
 	struct workqueue_struct *event_wq;
 	struct workqueue_struct *gesture_wq;
 	struct workqueue_struct *game_wq;
@@ -593,7 +598,8 @@ struct goodix_ts_core {
 	struct work_struct charger_work;
 	struct work_struct gesture_work;
 	struct work_struct game_work;
-	struct work_struct power_supply_work;
+	struct work_struct power_supply_work; // corrected
+	struct delayed_work thp_signal_work;
 	struct pm_qos_request pm_qos_req_irq;
 	u8 lockdown_info[GOODIX_LOCKDOWN_SIZE];
 	struct proc_dir_entry *tp_lockdown_info_proc;
@@ -603,7 +609,7 @@ struct goodix_ts_core {
 	struct dentry *debugfs;
 #endif
 	struct mutex report_mutex;
-	struct mutex core_mutex;
+	struct mutex core_mutex; // addition confirmed
 	int work_status;
 	int gesture_enabled;
 	int double_wakeup;
@@ -615,18 +621,18 @@ struct goodix_ts_core {
 	int palm_status;
 	int result_type;
 	int power_status;
-	int super_wallpaper;
+	int super_wallpaper; // addition confirmed
 	int report_rate;
 	bool tp_pm_suspend;
 	struct completion pm_resume_completion;
 	struct notifier_block notifier;
-	int sync_mode;
+	uint unknown_uint;
 #ifdef TOUCH_THP_SUPPORT
 	int enable_touch_raw;
 #endif
 	struct delayed_work panel_notifier_register_work;
-	struct delayed_work thp_signal_work;
-	int hang_debug;
+
+	// int hang_debug;
 };
 
 /* external module structures */
@@ -782,12 +788,15 @@ void goodix_fw_update_uninit(void);
 int goodix_do_fw_update(struct goodix_ic_config *ic_config, int mode);
 
 int goodix_gesture_ist(struct goodix_ts_core *cd);
-int gsx_gesture_before_suspend(struct goodix_ts_core *cd);
-int gsx_gesture_before_resume(struct goodix_ts_core *cd);
+int gsx_gesture_before_suspend(struct goodix_ts_core *cd,
+			       struct goodix_ext_module *module);
+int gsx_gesture_before_resume(struct goodix_ts_core *cd,
+			      struct goodix_ext_module *module);
 
 int goodix_get_ic_type(struct device_node *node);
 int gesture_module_init(void);
 void gesture_module_exit(void);
+int goodix_gesture_enable(int); // TODO: is this removed?
 int inspect_module_init(struct goodix_ts_core *core_data);
 void inspect_module_exit(void);
 int goodix_tools_init(void);
