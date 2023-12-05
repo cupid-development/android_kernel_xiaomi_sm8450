@@ -379,7 +379,7 @@ static int ts_test_read_version(struct goodix_ts_test *ts_test,
 	return ts_test->ts->hw_ops->read_version(ts_test->ts, version);
 }
 
-static void goto_next_line(char **ptr)
+void goto_next_line(char **ptr)
 {
 	do {
 		*ptr = *ptr + 1;
