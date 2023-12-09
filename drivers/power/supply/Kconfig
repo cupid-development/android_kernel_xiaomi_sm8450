@@ -833,6 +833,12 @@ config MI_WIRELESS
 	help
 	  Say Y here to enable mi wireless
 
+config WIRELESS_REVERSE_CLOSE
+        tristate "mi wirless reverse close config"
+        depends on MI_WIRELESS
+        help
+          Say Y here to disable mi wireless reverse function
+
 config MI_PEN_WIRELESS
 	tristate "mi pen wirless config"
 	help
