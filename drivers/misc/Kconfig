@@ -509,6 +509,12 @@ config KINECTICS_XR_NORDIC
 	   this also parses the gpios and interrupts from device tree and sets
 	   the gpios and interrupt handler for handling the interrupt.
 
+config LDO_WL2866D
+	tristate "WL2866 regulators"
+	help
+	  This driver provides support for the voltage regulators and top-level
+	  chip enablement of WL2866
+
 source "drivers/misc/rtimd-i2c/Kconfig"
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
