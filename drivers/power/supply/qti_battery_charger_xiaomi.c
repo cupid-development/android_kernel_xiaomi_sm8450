@@ -1065,6 +1065,7 @@ static ssize_t wlscharge_control_limit_show(struct class *c,
 }
 static CLASS_ATTR_RW(wlscharge_control_limit);
 
+#if !defined(CONFIG_WIRELESS_REVERSE_CLOSE)
 static ssize_t reverse_chg_mode_store(struct class *c,
 					struct class_attribute *attr,
 					const char *buf, size_t count)
@@ -1131,6 +1132,7 @@ static ssize_t reverse_chg_state_show(struct class *c,
 	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_REVERSE_CHG_STATE]);
 }
 static CLASS_ATTR_RO(reverse_chg_state);
+#endif
 
 static ssize_t rx_vout_show(struct class *c,
 					struct class_attribute *attr, char *buf)
@@ -4765,8 +4767,10 @@ static struct attribute *xiaomi_battery_class_attrs[] = {
 	&class_attr_rx_cr.attr,
 	&class_attr_rx_cep.attr,
 	&class_attr_bt_state.attr,
+#if !defined(CONFIG_WIRELESS_REVERSE_CLOSE)
 	&class_attr_reverse_chg_mode.attr,
 	&class_attr_reverse_chg_state.attr,
+#endif
 	&class_attr_wireless_chip_fw.attr,
 	&class_attr_wls_bin.attr,
 	&class_attr_rx_vout.attr,
@@ -5000,6 +5004,7 @@ static int add_xiaomi_uevent(struct device *dev, struct kobj_uevent_env *env)
 		return 0;
 
 #if defined(CONFIG_MI_WIRELESS)
+#if !defined(CONFIG_WIRELESS_REVERSE_CLOSE)
 	reverse_chg_state_show( &(bcdev->battery_class), NULL, prop_buf);
 	snprintf(uevent_string, MAX_UEVENT_LENGTH, "POWER_SUPPLY_REVERSE_CHG_STATE=%s", prop_buf);
 	add_uevent_var(env, uevent_string);
@@ -5033,6 +5038,7 @@ static int add_xiaomi_uevent(struct device *dev, struct kobj_uevent_env *env)
 	reverse_chg_mode_show( &(bcdev->battery_class), NULL, prop_buf);
 	snprintf(uevent_string, MAX_UEVENT_LENGTH, "POWER_SUPPLY_REVERSE_CHG_MODE=%s", prop_buf);
 	add_uevent_var(env, uevent_string);
+#endif
 
 	tx_mac_show( &(bcdev->battery_class), NULL, prop_buf);
 	snprintf(uevent_string, MAX_UEVENT_LENGTH, "POWER_SUPPLY_TX_MAC=%s", prop_buf);
