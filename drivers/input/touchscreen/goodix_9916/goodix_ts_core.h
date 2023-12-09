@@ -16,6 +16,7 @@
 #include <linux/completion.h>
 #include <linux/of_irq.h>
 #include <linux/pm_runtime.h>
+#include <linux/pm_qos.h>
 #include "mi_disp_notifier.h"
 #ifdef CONFIG_OF
 #include <linux/of_gpio.h>
@@ -46,13 +47,21 @@
 #define GOODIX_RETRY_10 10
 
 #define TS_DEFAULT_FIRMWARE "goodix_firmware.bin"
+#define TS_DEFAULT_FIRMWARE_1 "goodix_firmware_1.bin"
 #define TS_DEFAULT_CFG_BIN "goodix_cfg_group.bin"
+#define TS_DEFAULT_CFG_BIN_1 "goodix_cfg_group_1.bin"
+#define TS_DEFAULT_LIMIT_CSV "goodix_test_limits"
+#define TS_DEFAULT_LIMIT_CSV_1 "goodix_test_limits_1"
+
 #define GOODIX_LOCKDOWN_SIZE 8
 #define TS_LOCKDOWN_REG 0x10030
 
 #define GOODIX_XIAOMI_TOUCHFEATURE
 #define GOODIX_DEBUGFS_ENABLE
-//#define CONFIG_TOUCH_BOOST
+/*/#define CONFIG_TOUCH_BOOST*/
+
+#define TOUCH_THP_SUPPORT
+#define GOODIX_THP_FRAME_SIZE 2500
 
 #define GTP_RESULT_INVALID 0
 #define GTP_RESULT_FAIL 1
@@ -64,6 +73,13 @@
 #define PANEL_ORIENTATION_DEGREE_180 2 /* anticlockwise 180 degrees */
 #define PANEL_ORIENTATION_DEGREE_270 3 /* anticlockwise 270 degrees */
 #define GOODIX_FOD_AREA_REPORT /*support fod function*/
+
+#define GAME_ARRAY_LEN 4
+#define GAME_ARRAY_SIZE 3
+
+#define SINGLE_TAP_EN 0x01
+#define DOUBLE_TAP_EN 0x02
+#define FOD_EN 0x04
 
 enum CORD_PROB_STA {
 	CORE_MODULE_UNPROBED = 0,
@@ -220,10 +236,10 @@ struct goodix_ic_info_misc { /* other data */
 	u32 esd_addr;
 	u32 auto_scan_cmd_addr;
 	u32 auto_scan_info_addr;
+	u16 normalize_k_version;
 };
 
 struct goodix_ic_info_other {
-	u16 normalize_k_version;
 	u32 irrigation_data_addr;
 	u32 algo_debug_data_addr;
 	u16 algo_debug_data_len;
@@ -249,7 +265,7 @@ struct goodix_ic_info {
 #define TS_RAWDATA_BUFF_MAX 7000
 #define TS_RAWDATA_RESULT_MAX 100
 struct ts_rawdata_info {
-	int used_size; //fill in rawdata size
+	int used_size; /*fill in rawdata size*/
 	s16 buff[TS_RAWDATA_BUFF_MAX];
 	char result[TS_RAWDATA_RESULT_MAX];
 };
@@ -304,8 +320,12 @@ struct goodix_ts_board_data {
 	unsigned int panel_max_p; /*pressure*/
 
 	bool pen_enable;
+	char fw[GOODIX_MAX_STR_LABLE_LEN];
 	char fw_name[GOODIX_MAX_STR_LABLE_LEN];
+	char cfg_bin[GOODIX_MAX_STR_LABLE_LEN];
 	char cfg_bin_name[GOODIX_MAX_STR_LABLE_LEN];
+	char limit_csv_name[GOODIX_MAX_STR_LABLE_LEN];
+	u32 touch_expert_array[GAME_ARRAY_LEN * GAME_ARRAY_SIZE];
 };
 
 enum goodix_fw_update_mode {
@@ -343,6 +363,7 @@ enum ts_event_type {
 	EVENT_PEN = (1 << 1), /* pen event */
 	EVENT_REQUEST = (1 << 2),
 	EVENT_GESTURE = (1 << 3),
+	EVENT_FRAME = (1 << 4),
 };
 
 enum ts_request_type {
@@ -386,7 +407,6 @@ struct goodix_pen_coords {
 struct goodix_touch_data {
 	int touch_num;
 	struct goodix_ts_coords coords[GOODIX_MAX_TOUCH];
-	u8 tmp_data[32];
 	unsigned int overlay;
 	int fod_id;
 	int t_id;
@@ -402,6 +422,16 @@ struct goodix_pen_data {
 	struct goodix_ts_key keys[GOODIX_MAX_PEN_KEY];
 };
 
+#ifdef TOUCH_THP_SUPPORT
+struct tp_frame {
+	long time_ns;
+	unsigned long frame_cnt;
+	int fod_pressed;
+	int fod_trackingId;
+	u8 thp_frame[GOODIX_THP_FRAME_SIZE];
+};
+#endif
+
 /*
  * struct goodix_ts_event - touch event struct
  * @event_type: touch event type, touch data or
@@ -415,6 +445,9 @@ struct goodix_ts_event {
 	u8 gesture_type;
 	struct goodix_touch_data touch_data;
 	struct goodix_pen_data pen_data;
+#ifdef TOUCH_THP_SUPPORT
+	struct tp_frame tp_frame;
+#endif
 };
 
 enum goodix_ic_bus_type {
@@ -498,6 +531,12 @@ enum ts_work_stat {
 	TP_GESTURE,
 	TP_SLEEP,
 };
+enum SYNC_MODE {
+	NO_SYNC,
+	AUTO_SYNC,
+	SYNC,
+};
+
 struct goodix_ts_core {
 	int init_stage;
 	struct platform_device *pdev;
@@ -527,13 +566,17 @@ struct goodix_ts_core {
 	int power_on;
 	int irq;
 	size_t irq_trig_cnt;
+	void *notifier_cookie;
 
 	atomic_t irq_enabled;
 	atomic_t suspended;
 	/* when this flag is true, driver should not clean the sync flag */
 	bool tools_ctrl_sync;
 	bool fod_finger;
+	bool fod_down_before_suspend;
 	bool fod_display_enabled;
+	bool irq_priority_high;
+	bool doze_test;
 
 	struct notifier_block ts_notifier;
 	struct goodix_ts_esd ts_esd;
@@ -551,6 +594,7 @@ struct goodix_ts_core {
 	struct work_struct gesture_work;
 	struct work_struct game_work;
 	struct work_struct power_supply_work;
+	struct pm_qos_request pm_qos_req_irq;
 	u8 lockdown_info[GOODIX_LOCKDOWN_SIZE];
 	struct proc_dir_entry *tp_lockdown_info_proc;
 	struct proc_dir_entry *tp_fw_version_proc;
@@ -559,6 +603,7 @@ struct goodix_ts_core {
 	struct dentry *debugfs;
 #endif
 	struct mutex report_mutex;
+	struct mutex core_mutex;
 	int work_status;
 	int gesture_enabled;
 	int double_wakeup;
@@ -570,10 +615,18 @@ struct goodix_ts_core {
 	int palm_status;
 	int result_type;
 	int power_status;
+	int super_wallpaper;
 	int report_rate;
 	bool tp_pm_suspend;
 	struct completion pm_resume_completion;
 	struct notifier_block notifier;
+	int sync_mode;
+#ifdef TOUCH_THP_SUPPORT
+	int enable_touch_raw;
+#endif
+	struct delayed_work panel_notifier_register_work;
+	struct delayed_work thp_signal_work;
+	int hang_debug;
 };
 
 /* external module structures */
@@ -723,22 +776,38 @@ int checksum_cmp(const u8 *data, int size, int mode);
 int is_risk_data(const u8 *data, int size);
 u32 goodix_get_file_config_id(u8 *ic_config);
 void goodix_rotate_abcd2cbad(int tx, int rx, s16 *data);
-int goodix_gesture_enable(int enable);
 
 int goodix_fw_update_init(struct goodix_ts_core *core_data);
 void goodix_fw_update_uninit(void);
 int goodix_do_fw_update(struct goodix_ic_config *ic_config, int mode);
 
+int goodix_gesture_ist(struct goodix_ts_core *cd);
+int gsx_gesture_before_suspend(struct goodix_ts_core *cd);
+int gsx_gesture_before_resume(struct goodix_ts_core *cd);
+
 int goodix_get_ic_type(struct device_node *node);
 int gesture_module_init(void);
 void gesture_module_exit(void);
-int goodix_gesture_enable(int enabel);
 int inspect_module_init(struct goodix_ts_core *core_data);
 void inspect_module_exit(void);
 int goodix_tools_init(void);
 void goodix_tools_exit(void);
 int goodix_get_rawdata(struct device *dev, struct ts_rawdata_info *info);
-extern int mi_disp_lhbm_fod_set_finger_event(int disp_id, u32 fod_btn,
-					     bool from_touch);
+
+#ifdef TOUCH_THP_SUPPORT
+int goodix_htc_enable(int en);
+int goodix_htc_enter_idle(bool en);
+int goodix_htc_update_idle_baseline(void);
+int goodix_get_tx_num(void);
+int goodix_get_rx_num(void);
+int goodix_normalize_coeffi_update(struct goodix_ts_core *cd);
+int goodix_htc_set_scan_freq(u8 index);
+int goodix_htc_start_calibration(void);
+int goodix_htc_enable_b_array(void);
+#endif
+
+#ifdef CONFIG_FACTORY_BUILD
+void ts_test_cmd_enable(bool en);
+#endif
 
 #endif
