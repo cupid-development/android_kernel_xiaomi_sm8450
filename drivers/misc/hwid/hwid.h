@@ -11,16 +11,19 @@
 #include <linux/types.h>
 
 #define HARDWARE_PROJECT_UNKNOWN    0
-#define HARDWARE_PROJECT_L1         HARDWARE_PROJECT_UNKNOWN
+#define HARDWARE_PROJECT_L1         6 // thor
 #define HARDWARE_PROJECT_L1A        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L2         1
-#define HARDWARE_PROJECT_L2S        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L3         2
-#define HARDWARE_PROJECT_L3S        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L9S        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L10        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L12        HARDWARE_PROJECT_UNKNOWN
-#define HARDWARE_PROJECT_L18        HARDWARE_PROJECT_UNKNOWN
+#define HARDWARE_PROJECT_L2         1 // zeus
+#define HARDWARE_PROJECT_L2S        8 // unicorn
+#define HARDWARE_PROJECT_L3         2 // cupid
+#define HARDWARE_PROJECT_L3S        12 // mayfly
+#define HARDWARE_PROJECT_L9S        9 // ziyi
+#define HARDWARE_PROJECT_L10        4 // ingres
+#define HARDWARE_PROJECT_L12        10 // diting
+#define HARDWARE_PROJECT_L18        5 // zizhan
+#define HARDWARE_PROJECT_M11A       14 // mondrian
+#define HARDWARE_PROJECT_M16T       15 // marble
+#define HARDWARE_PROJECT_M80        11 // yudi
 
 typedef enum {
 	CountryCN = 0x00,
