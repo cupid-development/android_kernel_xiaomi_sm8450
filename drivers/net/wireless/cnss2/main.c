@@ -1692,7 +1692,7 @@ static bool cnss_link_down_self_recovery(void)
 #else
 static bool cnss_link_down_self_recovery(void)
 {
-	cnss_pr_warn("PCI link down recovery failed. Force self recovery\n");
+	cnss_pr_err("PCI link down recovery failed. Force self recovery\n");
 	return true;
 }
 #endif
@@ -1734,6 +1734,7 @@ static int cnss_do_recovery(struct cnss_plat_data *plat_priv,
 			 */
 			clear_bit(CNSS_DRIVER_RECOVERY,
 				  &plat_priv->driver_state);
+			cnss_pr_err("clear recovery bit to avoid skipping recovery work\n");
 			return 0;
 		} else {
 			if (cnss_link_down_self_recovery())
