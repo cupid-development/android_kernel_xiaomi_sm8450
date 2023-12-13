@@ -2245,11 +2245,7 @@ static int haptics_load_custom_effect(struct haptics_chip *chip,
 
 	play->effect = chip->custom_effect;
 	play->brake = NULL;
-	/*
-	 * make vibration intensity could changed larger, 0x4000
-	 * is computed by 0x7fff - 0x3fff
-	 */
-	play->vmax_mv = (magnitude - 0x3fff) * chip->custom_effect->vmax_mv / 0x4000;
+	play->vmax_mv = (magnitude * chip->custom_effect->vmax_mv) / 0x7fff;
 	rc = haptics_set_vmax_mv(chip, play->vmax_mv);
 	if (rc < 0)
 		goto cleanup;
