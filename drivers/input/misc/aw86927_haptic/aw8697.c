@@ -2715,27 +2715,28 @@ int aw8697_parse_dt(struct device *dev, struct aw8697 *aw8697,
 	aw8697->effects_count = tmp;
 	for_each_available_child_of_node (np, child_node) {
 		effect = &aw8697->predefined[i++];
-		rc = of_property_read_u32(child_node, "mtk,effect-id",
+		rc = of_property_read_u32(child_node, "qcom,effect-id",
 					  &effect->id);
 		if (rc != 0)
-			aw_info("%s Read mtk,effect-id failed\n", __func__);
+			aw_info("%s Read qcom,effect-id failed\n", __func__);
 
 		effect->vmax_mv = config->vmax_mv;
-		rc = of_property_read_u32(child_node, "mtk,wf-vmax-mv", &tmp);
+		rc = of_property_read_u32(child_node, "qcom,wf-vmax-mv", &tmp);
 		if (rc != 0)
-			aw_info("%s  Read mtk,wf-vmax-mv failed !\n", __func__);
+			aw_info("%s  Read qcom,wf-vmax-mv failed !\n",
+				__func__);
 		else
 			effect->vmax_mv = tmp;
 
 		aw_info("%s ---%d effect->vmax_mv =%d\n", __func__, __LINE__,
 			effect->vmax_mv);
 		rc = of_property_count_elems_of_size(
-			child_node, "mtk,wf-pattern", sizeof(u8));
+			child_node, "qcom,wf-pattern", sizeof(u8));
 		if (rc < 0) {
-			aw_info("%s Count mtk,wf-pattern property failed !\n",
+			aw_info("%s Count qcom,wf-pattern property failed !\n",
 				__func__);
 		} else if (rc == 0) {
-			aw_info("%s mtk,wf-pattern has no data\n", __func__);
+			aw_info("%s qcom,wf-pattern has no data\n", __func__);
 		}
 		aw_info("%s ---%d\n", __func__, __LINE__);
 
@@ -2744,27 +2745,27 @@ int aw8697_parse_dt(struct device *dev, struct aw8697 *aw8697,
 			devm_kcalloc(aw8697->dev, effect->pattern_length,
 				     sizeof(u8), GFP_KERNEL);
 
-		rc = of_property_read_u8_array(child_node, "mtk,wf-pattern",
+		rc = of_property_read_u8_array(child_node, "qcom,wf-pattern",
 					       effect->pattern,
 					       effect->pattern_length);
 		if (rc < 0) {
-			aw_info("%s Read mtk,wf-pattern property failed !\n",
+			aw_info("%s Read qcom,wf-pattern property failed !\n",
 				__func__);
 		}
 
 		effect->play_rate_us = config->play_rate_us;
-		rc = of_property_read_u32(child_node, "mtk,wf-play-rate-us",
+		rc = of_property_read_u32(child_node, "qcom,wf-play-rate-us",
 					  &tmp);
 		if (rc < 0)
-			aw_info("%s Read mtk,wf-play-rate-us failed !\n",
+			aw_info("%s Read qcom,wf-play-rate-us failed !\n",
 				__func__);
 		else
 			effect->play_rate_us = tmp;
 
-		rc = of_property_read_u32(child_node, "mtk,wf-repeat-count",
+		rc = of_property_read_u32(child_node, "qcom,wf-repeat-count",
 					  &tmp);
 		if (rc < 0) {
-			aw_info("%s Read  mtk,wf-repeat-count failed !\n",
+			aw_info("%s Read  qcom,wf-repeat-count failed !\n",
 				__func__);
 		} else {
 			for (j = 0; j < ARRAY_SIZE(wf_repeat); j++)
@@ -2774,10 +2775,10 @@ int aw8697_parse_dt(struct device *dev, struct aw8697 *aw8697,
 			effect->wf_repeat_n = j;
 		}
 
-		rc = of_property_read_u32(child_node, "mtk,wf-s-repeat-count",
+		rc = of_property_read_u32(child_node, "qcom,wf-s-repeat-count",
 					  &tmp);
 		if (rc < 0) {
-			aw_info("%s Read  mtk,wf-s-repeat-count failed !\n",
+			aw_info("%s Read  qcom,wf-s-repeat-count failed !\n",
 				__func__);
 		} else {
 			for (j = 0; j < ARRAY_SIZE(wf_s_repeat); j++)
@@ -2788,10 +2789,10 @@ int aw8697_parse_dt(struct device *dev, struct aw8697 *aw8697,
 		}
 
 		effect->lra_auto_res_disable = of_property_read_bool(
-			child_node, "mtk,lra-auto-resonance-disable");
+			child_node, "qcom,lra-auto-resonance-disable");
 
 		tmp = of_property_count_elems_of_size(
-			child_node, "mtk,wf-brake-pattern", sizeof(u8));
+			child_node, "qcom,wf-brake-pattern", sizeof(u8));
 		if (tmp <= 0)
 			continue;
 
@@ -2800,8 +2801,9 @@ int aw8697_parse_dt(struct device *dev, struct aw8697 *aw8697,
 				__func__, HAP_BRAKE_PATTERN_MAX);
 		}
 
-		rc = of_property_read_u8_array(
-			child_node, "mtk,wf-brake-pattern", effect->brake, tmp);
+		rc = of_property_read_u8_array(child_node,
+					       "qcom,wf-brake-pattern",
+					       effect->brake, tmp);
 		if (rc < 0) {
 			aw_info("%s Failed to get wf-brake-pattern !\n",
 				__func__);
