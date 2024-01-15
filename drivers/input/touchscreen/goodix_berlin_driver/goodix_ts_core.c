@@ -1975,6 +1975,11 @@ out:
 	if (core_data->board_data.support_thp_fw) {
 		core_data->hw_ops->set_coor_mode(core_data);
 	}
+	/* Re-enable high sampling rate */
+	if (core_data->report_rate != 240) {
+		ts_info("Re-enable high sampling rate");
+		hw_ops->switch_report_rate(core_data, true);
+	}
 	ts_info("Resume end");
 	return 0;
 }
