@@ -1386,9 +1386,6 @@ struct device_attribute *attr, const char *buf, size_t count)
 	if (!touch_pdata->raw_data)
 		return -ENOMEM;
 
-	// dump_stack();
-	pr_info("%s: head = %d, tail = %d\n", __func__, touch_pdata->raw_head, touch_pdata->raw_tail);
-
 	if (touch_pdata->raw_head != touch_pdata->raw_tail)
 		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,  "update_rawdata");
 
