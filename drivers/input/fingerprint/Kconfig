@@ -17,5 +17,6 @@ menuconfig INPUT_FINGERPRINT
 
 if INPUT_FINGERPRINT
 
+source "drivers/input/fingerprint/fpc_1540/Kconfig"
 source "drivers/input/fingerprint/goodix_fod/Kconfig"
 endif
