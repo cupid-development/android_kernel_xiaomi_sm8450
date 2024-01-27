@@ -36,7 +36,7 @@
 #include <linux/regulator/consumer.h>
 #endif
 /*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-#if 1
+#ifdef CONFIG_FB
 #include <linux/notifier.h>
 #include <linux/fb.h>
 #endif
@@ -636,12 +636,6 @@ struct goodix_ts_hw_ops {
 	int (*game)(struct goodix_ts_core *cd, u8 data0, u8 data1, bool on);
 	int (*charger_on)(struct goodix_ts_core *cd, bool on);
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 start */
-	int (*edge_mode_set)(struct goodix_ts_core *cd, u8 data0, u8 data1, int value);
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 end */
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
-	int (*hdle_mode_set)(struct goodix_ts_core *cd, bool on);
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
 };
 
 /*
@@ -704,6 +698,7 @@ struct goodix_ts_core {
 	int power_on;
 	int irq;
 	size_t irq_trig_cnt;
+	void *notifier_cookie; // new member ok
 
 	atomic_t irq_enabled;
 	atomic_t suspended;
@@ -714,7 +709,7 @@ struct goodix_ts_core {
 	struct goodix_ts_esd ts_esd;
 
 /*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-#if 1
+#ifdef CONFIG_FB
 	struct notifier_block fb_notifier;
 #endif
 /*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
@@ -752,6 +747,7 @@ struct goodix_ts_core {
 	int gesture_enabled;
 	int aod_status;
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+	struct delayed_work panel_notifier_register_work;
 };
 
 /* external module structures */

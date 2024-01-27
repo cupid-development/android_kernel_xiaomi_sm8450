@@ -1788,68 +1788,6 @@ static int brl_game(struct goodix_ts_core *cd, u8 data0, u8 data1, bool on)
 }
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
 
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 start */
-static int brl_edge_mode_set(struct goodix_ts_core *cd, u8 data0, u8 data1, int value)
-{
-	struct goodix_ts_cmd cmd;
-
-	if (!cd) {
-		ts_err("cd is NULL\n");
-		return -EINVAL;
-	}
-
-	memset(&cmd, 0, sizeof(struct goodix_ts_cmd));
-	cmd.cmd = GOODIX_NORMAL_CMD;
-	cmd.len = 6;
-	cmd.data[0] = data0;
-	cmd.data[1] = data1;
-
-	if (value == NORMAL_ORIENTATION_270)
-	{
-		cmd.data[0] = 0x80;
-		cmd.data[1] = 0x80;
-	} else if(value == NORMAL_ORIENTATION_90)
-	{
-		cmd.data[0] = 0x40;
-		cmd.data[1] = 0x80;
-	} else {
-		cmd.data[0] = 0x00;
-		cmd.data[1] = 0x80;
-	}
-	if (cd->hw_ops->send_cmd(cd, &cmd)) {
-		ts_err("failed send edge cmd, data0 = 0x%x, data1 = 0x%x", cmd.data[0], cmd.data[1]);
-		return -EINVAL;
-	}
-	ts_info("edge data0:0x%x, data1:0x%x", cmd.data[0], cmd.data[1]);
-	return 0;
-}
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 end */
-
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
-static int brl_hdle_mode_set(struct goodix_ts_core *cd, bool value)
-{
-        struct goodix_ts_cmd cmd;
-
-	if (!cd) {
-		ts_err("cd is NULL\n");
-		return -EINVAL;
-	}
-
-	memset(&cmd, 0, sizeof(struct goodix_ts_cmd));
-        cmd.cmd = GOODIX_HDLE_MODE_CMD;
-        cmd.len = 5;
-        cmd.data[0] = value ? 1 : 0;
-
-        if (cd->hw_ops->send_cmd(cd, &cmd)) {
-                ts_err("failed send hdle mode cmd, value = %d", value);
-                return -EINVAL;
-        }
-        ts_info("hdle mode %s", value ? "on" : "off");
-
-        return 0;
-}
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
-
 static struct goodix_ts_hw_ops brl_hw_ops = {
 	.power_on = brl_power_on,
 	.resume = brl_resume,
@@ -1876,12 +1814,6 @@ static struct goodix_ts_hw_ops brl_hw_ops = {
 	.palm_on = brl_palm_on,
 	.game = brl_game,
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 start */
-	.edge_mode_set = brl_edge_mode_set,
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 end */
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
-	.hdle_mode_set = brl_hdle_mode_set,
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
 };
 
 struct goodix_ts_hw_ops *goodix_get_hw_ops(void)
