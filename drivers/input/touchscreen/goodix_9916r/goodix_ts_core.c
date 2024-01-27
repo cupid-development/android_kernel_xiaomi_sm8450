@@ -19,12 +19,10 @@
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
-/*N17 code for HQ-291100 by gaoxue at 2023/5/4 start*/
-#include <linux/hqsysfs.h>
-/*N17 code for HQ-291100 by gaoxue at 2023/5/4 end*/
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 start */
 #include <linux/power_supply.h>
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+#include <linux/soc/qcom/panel_event_notifier.h>
 
 #if LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 38)
 #include <linux/input/mt.h>
@@ -33,24 +31,10 @@
 
 #include "goodix_ts_core.h"
 
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 start */
-#if IS_ENABLED(CONFIG_MI_DISP_NOTIFIER)
-#include "../../../gpu/drm/mediatek/mediatek_v2/mi_disp/mi_disp_notifier.h"
-#endif
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 end */
-
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-#include "../../../gpu/drm/mediatek/mediatek_v2/mtk_disp_notify.h"
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
-
-/* goodix fb test */
-// #include "../../../video/fbdev/core/fb_firefly.h"
-
 #define GOODIX_DEFAULT_CFG_NAME		"goodix_cfg_group.cfg"
 
-/* N17 code for HQ-308381 by zhangzhijian5 at 2023/7/20 start */
-#define INVALID_VALUE 0
-/* N17 code for HQ-308381 by zhangzhijian5 at 2023/7/20 end */
+#define DISP_ID_DET (301 + 119)
+#define DISP_ID1_DET (301 + 117)
 
 struct goodix_module goodix_modules;
 int core_module_prob_sate = CORE_MODULE_UNPROBED;
@@ -60,13 +44,6 @@ struct goodix_ts_core *goodix_core_data;
 /*N17 code for HQ-292221 by gaoxue at 2023/4/19 end*/
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
-/*N17 code for HQ-291100 by gaoxue at 2023/5/4 start*/
-static char gt_hw_info[128] = "";
-/*N17 code for HQ-291100 by gaoxue at 2023/5/4 end*/
-
-/*N17 code for HQ-296326 by gaoxue at 2023/5/18 start*/
-int goodix_ts_hw_info(struct goodix_ts_core *core_data);
-/*N17 code for HQ-296326 by gaoxue at 2023/5/18 end*/
 
 /* N17 code for HQ-291091 by jiangyue at 2023/6/2 start */
 extern int gsx_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value);
@@ -79,6 +56,36 @@ extern int gsx_gesture_switch(struct input_dev *dev, unsigned int type, unsigned
 static void goodix_set_gesture_work(struct work_struct *work);
 static int goodix_get_charging_status(void);
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+
+struct drm_panel *active_panel;
+extern struct device_node *gf_spi_dp;
+
+static int goodix_ts_check_panel()
+{
+	int i;
+	int count;
+	struct device_node *node;
+	struct drm_panel *panel;
+
+	if (gf_spi_dp == NULL) {
+		ts_err("dp is null,failed to find active panel");
+		return -ENODEV;
+	}
+
+	count = of_count_phandle_with_args(gf_spi_dp, "panel", NULL);
+	if (count <= 0)
+		return -ENODEV;
+	for (i = 0; i < count; i++) {
+		node = of_parse_phandle(gf_spi_dp, "panel", i);
+		panel = of_drm_find_panel(node);
+		of_node_put(node);
+		if (!IS_ERR(panel)) {
+			active_panel = panel;
+			return 0;
+		}
+	}
+	return PTR_ERR(panel);
+}
 
 /**
  * __do_register_ext_module - register external module
@@ -1115,6 +1122,8 @@ static int goodix_parse_dt(struct device_node *node,
 	struct goodix_ts_board_data *board_data)
 {
 	const char *name_tmp;
+	int gpio_a;
+	int gpio_b;
 	int r;
 
 	if (!board_data) {
@@ -1171,7 +1180,7 @@ static int goodix_parse_dt(struct device_node *node,
 			strncpy(board_data->avdd_name,
 				name_tmp, sizeof(board_data->avdd_name));
 		else
-			ts_info("invalied avdd name length: %ld > %ld",
+			ts_info("invalid avdd name length: %ld > %ld",
 				strlen(name_tmp),
 				sizeof(board_data->avdd_name));
 	}
@@ -1184,36 +1193,42 @@ static int goodix_parse_dt(struct device_node *node,
 			strncpy(board_data->iovdd_name,
 				name_tmp, sizeof(board_data->iovdd_name));
 		else
-			ts_info("invalied iovdd name length: %ld > %ld",
+			ts_info("invalid iovdd name length: %ld > %ld",
 				strlen(name_tmp),
 				sizeof(board_data->iovdd_name));
 	}
 
 	/* get firmware file name */
-	r = of_property_read_string(node, "goodix,firmware-name", &name_tmp);
+	gpio_a = gpio_get_value(DISP_ID_DET);
+	gpio_b = gpio_get_value(DISP_ID1_DET);
+	if (gpio_a == 0 && gpio_b == 1) {
+		r = of_property_read_string(node, "goodix,firmware-namea", &name_tmp);
+	} else
+		r = of_property_read_string(node, "goodix,firmware-nameb", &name_tmp);
 	if (!r) {
 		ts_info("firmware name from dt: %s", name_tmp);
-		strncpy(board_data->fw_name,
+		if (strlen(name_tmp) < sizeof(board_data->fw_name))
+			strncpy(board_data->fw_name,
 				name_tmp, sizeof(board_data->fw_name));
-	} else {
-		ts_info("can't find firmware name, use default: %s",
-				TS_DEFAULT_FIRMWARE);
-		strncpy(board_data->fw_name,
-				TS_DEFAULT_FIRMWARE,
+		else
+			ts_info("invalid firmware name length: %ld > %ld",
+				strlen(name_tmp),
 				sizeof(board_data->fw_name));
 	}
 
 	/* get config file name */
-	r = of_property_read_string(node, "goodix,config-name", &name_tmp);
+	if (gpio_a == 0 && gpio_b == 1) {
+		r = of_property_read_string(node, "goodix,config-namea", &name_tmp);
+	} else
+		r = of_property_read_string(node, "goodix,config-nameb", &name_tmp);
 	if (!r) {
 		ts_info("config name from dt: %s", name_tmp);
-		strncpy(board_data->cfg_bin_name, name_tmp,
-				sizeof(board_data->cfg_bin_name));
-	} else {
-		ts_info("can't find config name, use default: %s",
-				TS_DEFAULT_CFG_BIN);
-		strncpy(board_data->cfg_bin_name,
-				TS_DEFAULT_CFG_BIN,
+		if (strlen(name_tmp) < sizeof(board_data->cfg_bin_name))
+			strncpy(board_data->cfg_bin_name,
+				name_tmp, sizeof(board_data->cfg_bin_name));
+		else
+			ts_info("invalid config name length: %ld > %ld",
+				strlen(name_tmp),
 				sizeof(board_data->cfg_bin_name));
 	}
 
@@ -1297,8 +1312,12 @@ static void goodix_ts_report_pen(struct input_dev *dev,
 static void goodix_ts_report_finger(struct input_dev *dev,
 		struct goodix_touch_data *touch_data)
 {
+	struct goodix_ts_core *cd = input_get_drvdata(dev);
 	unsigned int touch_num = touch_data->touch_num;
 	int i;
+	int resolution_factor;
+	int report_x;
+	int report_y;
 
 	mutex_lock(&dev->mutex);
 
@@ -1308,16 +1327,32 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 				touch_data->coords[i].x,
 				touch_data->coords[i].y,
 				touch_data->coords[i].w);
+			/*
+				Make sure the Touch function works properly regardless of
+				whether the TouchIC firmware supports the super-resolution
+				scanning function
+			*/
+			if (cd->ic_info.other.screen_max_x > cd->board_data.panel_max_x) {
+				// if supported
+				resolution_factor = cd->ic_info.other.screen_max_x / cd->board_data.panel_max_x;
+				report_x = touch_data->coords[i].x / resolution_factor;
+				report_y = touch_data->coords[i].y / resolution_factor;
+			} else {
+				// if not supported
+				resolution_factor = cd->board_data.panel_max_x / cd->ic_info.other.screen_max_x;
+				report_x = touch_data->coords[i].x * resolution_factor;
+				report_y = touch_data->coords[i].y * resolution_factor;
+			}
+
+			ts_debug("panel_max_x: %d, screen_max_x:%d",
+					cd->board_data.panel_max_x, cd->ic_info.other.screen_max_x);
+			ts_debug("report: id %d, x %d, y %d, w %d resolution_factor:%d",
+					i, report_x, report_y, touch_data->coords[i].w, resolution_factor);
+
 			input_mt_slot(dev, i);
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
-			input_report_abs(dev, ABS_MT_POSITION_X,
-					touch_data->coords[i].x);
-			input_report_abs(dev, ABS_MT_POSITION_Y,
-					touch_data->coords[i].y);
-/* N17 code for HQ-308381 by zhangzhijian5 at 2023/7/20 start */
-			input_report_abs(dev, ABS_MT_TOUCH_MAJOR,
-					INVALID_VALUE);
-/* N17 code for HQ-308381 by zhangzhijian5 at 2023/7/20 end */
+			input_report_abs(dev, ABS_MT_POSITION_X, report_x);
+			input_report_abs(dev, ABS_MT_POSITION_Y, report_y);
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
 			last_touch_events_collect(i, 1);
 		} else {
@@ -1466,6 +1501,11 @@ static int goodix_ts_power_init(struct goodix_ts_core *core_data)
 			core_data->avdd = NULL;
 			return ret;
 		}
+		ret = regulator_set_voltage(core_data->avdd, 3224000, 3224000);
+		if (ret < 0) {
+			ts_err("set avdd voltage failed");
+			return ret;
+		}
 	} else {
 		ts_info("Avdd name is NULL");
 	}
@@ -1477,6 +1517,11 @@ static int goodix_ts_power_init(struct goodix_ts_core *core_data)
 			ret = PTR_ERR(core_data->iovdd);
 			ts_err("Failed to get regulator iovdd:%d", ret);
 			core_data->iovdd = NULL;
+		}
+		ret = regulator_set_voltage(core_data->iovdd, 1800000, 1800000);
+		if (ret < 0) {
+			ts_err("set iovdd voltage failed");
+			return ret;
 		}
 	} else {
 		ts_info("iovdd name is NULL");
@@ -2046,49 +2091,6 @@ out:
 	return 0;
 }
 
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-/**
- * goodix_ts_fb_notifier_callback - Framebuffer notifier callback
- * Called by kernel during framebuffer blanck/unblank phrase
- */
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 start */
-static int goodix_ts_fb_notifier_callback(struct notifier_block *nb,
-                unsigned long val, void *data)
-{
-#if IS_ENABLED(CONFIG_MI_DISP_NOTIFIER)
-	struct goodix_ts_core *core_data =
-		container_of(nb, struct goodix_ts_core, fb_notifier);
-	//struct fb_event *evdata = data;
-	struct mi_disp_notifier *evdata = data;
-	int blank;
-
-    if (!(val == MI_DISP_DPMS_EARLY_EVENT ||
-          val == MI_DISP_DPMS_EVENT)) {
-        ts_err("event(%lu) do not need process", val);
-        return 0;
-    }
-
-	if (evdata && evdata->data && core_data) {
-		blank = *(int *)(evdata->data);
-		ts_info("notifier tp event:%d, code:%d.", val, blank);
-		if (val == MI_DISP_DPMS_EVENT && (blank == MI_DISP_DPMS_POWERDOWN || blank == MI_DISP_DPMS_LP1 || blank == MI_DISP_DPMS_LP2)) {
-			ts_info("event:%lu,blank:%d", val, blank);
-/*N17 code for HQ-301563 by jiangyue at 2023/7/12 start*/
-			flush_workqueue(core_data->event_wq);
-			queue_work(core_data->event_wq, &core_data->suspend_work);
-		} else if (val == MI_DISP_DPMS_EVENT && blank == MI_DISP_DPMS_ON) {
-			ts_info("touchpanel resume, event:%lu,blank:%d", val, blank);
-			flush_workqueue(core_data->event_wq);
-			queue_work(core_data->event_wq, &core_data->resume_work);
-/*N17 code for HQ-301563 by jiangyue at 2023/7/12 end*/
-		}
-	}
-#endif
-	return 0;
-}
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 end */
-
-/*N17 code for HQ-301563 by jiangyue at 2023/7/12 start*/
 static void goodix_ts_resume_work(struct work_struct *work)
 {
 	struct goodix_ts_core *core_data =
@@ -2102,10 +2104,100 @@ static void goodix_ts_suspend_work(struct work_struct *work)
 		container_of(work, struct goodix_ts_core, suspend_work);
 	goodix_ts_suspend(core_data);
 }
-/*N17 code for HQ-301563 by jiangyue at 2023/7/12 end*/
+
+void goodix_drm_state_change_callback(enum panel_event_notifier_tag tag,
+		struct panel_event_notification *event, void *data)
+{
+	struct goodix_ts_core *core_data = data;
+
+	if (event == NULL) {
+		ts_err("Invalid notification");
+		return;
+	}
+
+	ts_info("Notification type:%d, early_trigger:%d", event->notif_type, event->notif_data.early_trigger);
+	switch (event->notif_type) {
+		case 1:
+		case 3:
+			if (event->notif_data.early_trigger) {
+				return;
+			}
+			if (atomic_read(&core_data->suspended)) {
+				return;
+			}
+			ts_info("FB_BLANK %s", event->notif_type == 3 ? "POWER DOWN" : "LP");
+			flush_workqueue(core_data->event_wq);
+			queue_work(core_data->event_wq, &core_data->suspend_work);
+			break;
+		case 2:
+			if (event->notif_data.early_trigger) {
+				return;
+			}
+			ts_info("FB_BLANK_UNBLANK");
+			flush_workqueue(core_data->event_wq);
+			queue_work(core_data->event_wq, &core_data->resume_work);
+			break;
+		case 4:
+			break;
+		default:
+			ts_err("%s: notification serviced :%d", __func__, event->notif_type);
+			break;
+	}
+}
+
+void goodix_register_panel_notifier_work(struct work_struct* work) {
+	static int check_count = 0;
+	struct delayed_work* dwork = to_delayed_work(work);
+	struct goodix_ts_core *cd =
+		container_of(dwork, struct goodix_ts_core, panel_notifier_register_work);
+	ts_info("%s enter", __func__);
+	goodix_ts_check_panel();
+
+	if (active_panel == NULL) {
+		ts_err("Failed to register panel notifier, try again");
+		if (check_count < 5) {
+			check_count++;
+			queue_delayed_work(system_wq, dwork, 0x4e2);
+			return;
+		}
+		ts_err("Failed to register panel notifier, not try");
+	} else {
+		cd->notifier_cookie = (void*)panel_event_notifier_register(1, 0, active_panel, goodix_drm_state_change_callback, cd);
+		if (cd->notifier_cookie == NULL) {
+			ts_err("Failed to register for panel events");
+		}
+	}
+}
+
+#ifdef CONFIG_FB
+/**
+ * goodix_ts_fb_notifier_callback - Framebuffer notifier callback
+ * Called by kernel during framebuffer blanck/unblank phrase
+ */
+int goodix_ts_fb_notifier_callback(struct notifier_block *self,
+	unsigned long event, void *data)
+{
+	struct goodix_ts_core *core_data =
+		container_of(self, struct goodix_ts_core, fb_notifier);
+	struct fb_event *fb_event = data;
+
+	if (fb_event && fb_event->data && core_data) {
+		if (event == FB_EARLY_EVENT_BLANK) {
+			/* before fb blank */
+		} else if (event == FB_EVENT_BLANK) {
+			int *blank = fb_event->data;
+			if (*blank == FB_BLANK_UNBLANK)
+				goodix_ts_resume(core_data);
+			else if (*blank == FB_BLANK_POWERDOWN)
+				goodix_ts_suspend(core_data);
+		}
+	}
+
+	return 0;
+}
+#endif
 
 #if IS_ENABLED(CONFIG_PM)
-#if 0
 /**
  * goodix_ts_pm_suspend - PM suspend function
  * Called by kernel during system suspend phrase
@@ -2129,8 +2221,6 @@ static int goodix_ts_pm_resume(struct device *dev)
 	return goodix_ts_resume(core_data);
 }
 #endif
-#endif
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
 
 /**
  * goodix_generic_noti_callback - generic notifier callback
@@ -2296,18 +2386,19 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 /*N17 code for HQ-301563 by jiangyue at 2023/7/12 start*/
 	INIT_WORK(&cd->suspend_work, goodix_ts_suspend_work);
 	INIT_WORK(&cd->resume_work, goodix_ts_resume_work);
-/*N17 code for HQ-301563 by jiangyue at 2023/7/12 end*/
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 start */
-#if IS_ENABLED(CONFIG_MI_DISP_NOTIFIER)
-	cd->fb_notifier.notifier_call = goodix_ts_fb_notifier_callback;
-	ret = mi_disp_register_client(&cd->fb_notifier);
-	if (ret) {
-		ts_err("[FB]Unable to register fb_notifier: %d", ret);
+	INIT_DELAYED_WORK(&cd->panel_notifier_register_work, goodix_register_panel_notifier_work);
+
+	goodix_ts_check_panel();
+
+	if (active_panel == NULL) {
+		ts_err("Can't find panel,check again after 5s");
+		queue_delayed_work(system_wq,&cd->panel_notifier_register_work,0x4e2);
+	} else {
+		cd->notifier_cookie = (void*)panel_event_notifier_register(1, 0, active_panel, goodix_drm_state_change_callback, cd);
+		if (cd->notifier_cookie == NULL) {
+			ts_err("Failed to register for panel events");
+		}
 	}
-#endif
-/* N17 code for HQ-305336 by jiangyue at 2023/7/5 end */
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
 
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 start */
 	/* register charger status change notifier */
@@ -2426,10 +2517,6 @@ static int goodix_later_init_thread(void *data)
 		ts_err("failed do fw update");
 
 	print_ic_info(&cd->ic_info);
-
-	/*N17 code for HQ-296326 by gaoxue at 2023/5/18 start*/
-	goodix_ts_hw_info(cd);
-	/*N17 code for HQ-296326 by gaoxue at 2023/5/18 end*/
 
 	/* the recomend way to update ic config is throuth ISP,
 	 * if not we will send config with interactive mode
@@ -2586,21 +2673,6 @@ int goodix_ts_get_lockdown_info(struct goodix_ts_core *cd)
 }
 /*N17 code for HQ-291116 by gaoxue at 2023/4/24 end*/
 
-/*N17 code for HQ-296326 by gaoxue at 2023/5/18 start*/
-int goodix_ts_hw_info(struct goodix_ts_core *core_data)
-{
-	snprintf(gt_hw_info, sizeof(gt_hw_info),
-			"[Vendor]:Tianma [TP-IC]:GT%s [FW]:%02x%02x%02x%02x [Config]:%x\n",
-			core_data->fw_version.patch_pid,
-			core_data->fw_version.patch_vid[0], core_data->fw_version.patch_vid[1],
-			core_data->fw_version.patch_vid[2], core_data->fw_version.patch_vid[3],
-			core_data->ic_info.version.config_version);
-
-	hq_regiser_hw_info(HWID_CTP, gt_hw_info);
-	return 0;
-}
-/*N17 code for HQ-296326 by gaoxue at 2023/5/18 end*/
-
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
 static struct xiaomi_touch_interface xiaomi_touch_interfaces;
 /*
@@ -2740,11 +2812,7 @@ static void goodix_set_game_work(struct work_struct *work)
 	/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
 	if (ret < 0) {
 		ts_err("send game mode fail");
-        } else {
-		ret = hw_ops->hdle_mode_set(goodix_core_data, !!on);
-		if (ret < 0)
-			ts_err("send hdle mode fail");
-        }
+	}
 	/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
 	mutex_unlock(&goodix_core_data->core_mutex);
 }
@@ -2913,7 +2981,7 @@ static void goodix_init_touchmode_data(void)
 	xiaomi_touch_interfaces.touch_mode[Touch_Panel_Orientation][GET_CUR_VALUE] = 0;
 
 	for (i = 0; i < Touch_Mode_NUM; i++) {
-		ts_info("mode:%d, set cur:%d, get cur:%d, def:%d min:%d max:%d\n",
+		ts_info("mode:%d, set cur:%d, get cur:%d, def:%d min:%d max:%d",
 				i,
 				xiaomi_touch_interfaces.touch_mode[i][SET_CUR_VALUE],
 				xiaomi_touch_interfaces.touch_mode[i][GET_CUR_VALUE],
@@ -2975,48 +3043,6 @@ static int goodix_palm_sensor_write(int value)
 	return ret;
 }
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
-
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 start */
-static int goodix_touch_edge_mode_set(int value)
-{
-	struct goodix_ts_hw_ops *hw_ops = NULL;
-	int ret = 0;
-	u8 data0 = 0;
-	u8 data1 = 0;
-
-	ts_info("edge value : %d", value);
-
-	if ((!goodix_core_data) || (!goodix_core_data->hw_ops)) {
-		ts_err("goodix_core_data or hw_ops is NULL");
-		return -EINVAL;
-	}
-
-	hw_ops = goodix_core_data->hw_ops;
-	ret = hw_ops->edge_mode_set(goodix_core_data, data0, data1, value);
-
-	return ret;
-}
-/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 end */
-
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
-static int goodix_touch_hdle_mode_set(bool value)
-{
-	struct goodix_ts_hw_ops *hw_ops = NULL;
-	int ret = 0;
-
-	ts_info("hdle value : %d", value);
-
-	if ((!goodix_core_data) || (!goodix_core_data->hw_ops)) {
-		ts_err("goodix_core_data or hw_ops is NULL");
-		return -EINVAL;
-	}
-
-	hw_ops = goodix_core_data->hw_ops;
-	ret = hw_ops->hdle_mode_set(goodix_core_data, value);
-
-	return ret;
-}
-/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
 
 /**
  * goodix_ts_probe - called by kernel when Goodix touch
@@ -3133,12 +3159,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	xiaomi_touch_interfaces.panel_color_read = goodix_panel_color_read;
 	xiaomi_touch_interfaces.touch_vendor_read = goodix_touch_vendor_read;
 	xiaomi_touch_interfaces.palm_sensor_write = goodix_palm_sensor_write;
-	/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 start */
-	xiaomi_touch_interfaces.touch_edge_mode_set = goodix_touch_edge_mode_set;
-	/* N17 code for HQ-307700 by p-xionglei6 at 2023.07.24 end */
-	/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 start */
-	xiaomi_touch_interfaces.touch_hdle_mode_set = goodix_touch_hdle_mode_set;
-	/* N17 code for HQ-310258 by zhangzhijian5 at 2023/7/29 end */
 
 	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
 	goodix_init_touchmode_data();
@@ -3157,7 +3177,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	/* Try start a thread to get config-bin info */
 	goodix_start_later_init(core_data);
 
-	ts_info("goodix_ts_core probe success");
+	ts_info("gt9916r probe success");
 	return 0;
 
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
@@ -3186,13 +3206,6 @@ static int goodix_ts_remove(struct platform_device *pdev)
 		gesture_module_exit();
 		inspect_module_exit();
 		hw_ops->irq_enable(core_data, false);
-	/*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
-	/* N17 code for HQ-305336 by jiangyue at 2023/7/5 start */
-	#if IS_ENABLED(CONFIG_MI_DISP_NOTIFIER)
-		mi_disp_unregister_client(&core_data->fb_notifier);
-	#endif
-	/* N17 code for HQ-305336 by jiangyue at 2023/7/5 end */
-	/*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
 		core_module_prob_sate = CORE_MODULE_REMOVED;
 		if (atomic_read(&core_data->ts_esd.esd_on))
 			goodix_ts_esd_off(core_data);
@@ -3209,16 +3222,12 @@ static int goodix_ts_remove(struct platform_device *pdev)
 	return 0;
 }
 
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 start*/
 #if IS_ENABLED(CONFIG_PM)
 static const struct dev_pm_ops dev_pm_ops = {
-#if 0
 	.suspend = goodix_ts_pm_suspend,
 	.resume = goodix_ts_pm_resume,
-#endif
 };
 #endif
-/*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
 
 static const struct platform_device_id ts_core_ids[] = {
 	{.name = GOODIX_CORE_DRIVER_NAME},
@@ -3239,13 +3248,6 @@ static struct platform_driver goodix_ts_driver = {
 	.id_table = ts_core_ids,
 };
 
-/* N17 code for HQ-291087 by liunianliang at 2023/5/29 start */
-static int skip_load = 0;
-module_param(skip_load, int, S_IRUSR);
-
-static int force_load = 0;
-module_param(force_load, int, S_IRUSR);
-
 struct tag_videolfb {
 	u64 fb_base;
 	u32 islcmfound;
@@ -3264,46 +3266,14 @@ struct tag_bootmode {
 static int __init goodix_ts_core_init(void)
 {
 	int ret;
-	struct device_node *lcm_name;
-	struct tag_videolfb *videolfb_tag = NULL;
-	struct tag_bootmode *tag_boot = NULL;
-	unsigned long size = 0;
+	int gpio_a;
+	int gpio_b;
 
-	/* for debug, you can use: 'insmod gt9916r.ko skip_load=1' */
-	if (skip_load) {
-		ts_err("get a skip flag, don't load gt9916r ko!");
-		return 0;
-	}
-
-	if (force_load)
-		goto force_load_ko;
-
-	lcm_name = of_find_node_by_path("/chosen");
-
-	if (lcm_name) {
-		tag_boot = (struct tag_bootmode *)of_get_property(lcm_name, "atag,boot", NULL);
-		if (tag_boot && (tag_boot->bootmode == 8 || tag_boot->bootmode == 9)) {
-			ts_err("in kpoc mode, don't load focaltech_tp ko!");
-			return 0;
-		}
-
-		videolfb_tag = (struct tag_videolfb *)of_get_property(lcm_name,
-				"atag,videolfb",(int *)&size);
-		if (!videolfb_tag) {
-			ts_err("Invalid lcm name!!!");
-			return 0;
-		}
-		ts_err("goodix_ts_core_init read lcm name : %s", videolfb_tag->lcmname);
-		if (strcmp("n17_36_02_0a_dsc_vdo_lcm_drv",
-				videolfb_tag->lcmname) == 0) {
-			ts_err("goodix tp!!!");
-		} else {
-			ts_err("not goodix tp!!!");
-			return 0;
-		}
-	}
-
-force_load_ko:
+	gpio_direction_input(DISP_ID_DET);
+	gpio_a = gpio_get_value(DISP_ID_DET);
+	gpio_direction_input(DISP_ID1_DET);
+	gpio_b = gpio_get_value(DISP_ID1_DET);
+	ts_info("gpio_a = %d, gpio_b:%d", gpio_a, gpio_b);
 
 	ts_info("Core layer init:%s", GOODIX_DRIVER_VERSION);
 #ifdef CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI
@@ -3317,7 +3287,6 @@ force_load_ko:
 	}
 	return platform_driver_register(&goodix_ts_driver);
 }
-/* N17 code for HQ-291087 by liunianliang at 2023/5/29 end */
 
 static void __exit goodix_ts_core_exit(void)
 {
@@ -3333,9 +3302,7 @@ static void __exit goodix_ts_core_exit(void)
 late_initcall(goodix_ts_core_init);
 module_exit(goodix_ts_core_exit);
 
-/*N17 code for HQ-292221 by gaoxue at 2023/4/19 start*/
 MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
-/*N17 code for HQ-292221 by gaoxue at 2023/4/19 end*/
 MODULE_DESCRIPTION("Goodix Touchscreen Core Module");
 MODULE_AUTHOR("Goodix, Inc.");
 MODULE_LICENSE("GPL v2");

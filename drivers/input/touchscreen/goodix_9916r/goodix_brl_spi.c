@@ -189,9 +189,12 @@ static void goodix_pdev_release(struct device *dev)
 	kfree(goodix_pdev);
 }
 
+struct device_node *gf_spi_dp;
+
 static int goodix_spi_probe(struct spi_device *spi)
 {
 	int ret = 0;
+	struct device_node *dp = spi->dev.of_node;
 
 	ts_info("goodix spi probe in");
 
@@ -244,6 +247,9 @@ static int goodix_spi_probe(struct spi_device *spi)
 		ts_err("failed register goodix platform device, %d", ret);
 		goto err_pdev;
 	}
+
+	gf_spi_dp = dp;
+
 	ts_info("spi probe out");
 	return 0;
 
