@@ -1,6 +1,6 @@
 ifneq ($(KERNELRELEASE),)
-	obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL_9916R) += goodix_core.o
-goodix_core-y := \
+	obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL_9916R) += gt9916r.o
+gt9916r-y := \
 	goodix_brl_i2c.o \
 	goodix_brl_spi.o \
 	goodix_ts_core.o \
@@ -10,8 +10,7 @@ goodix_core-y := \
 	goodix_brl_fwupdate.o \
 	goodix_ts_gesture.o \
 	goodix_ts_inspect.o \
-	goodix_ts_tools.o \
-    goodix_ts_utils.o
+	goodix_ts_tools.o
 else
     KDIR = $(OUT)/obj/KERNEL_OBJ
     CROSS_COMPILE = $(ANDROID_TOOLCHAIN)/aarch64-linux-android-
