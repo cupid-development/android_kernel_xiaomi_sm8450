@@ -140,7 +140,6 @@ struct xiaomi_touch_interface {
 	bool is_enable_touchdelta;
 	bool active_status;
 	bool finger_status;
-	int irq_no;
 };
 
 struct xiaomi_touch {
@@ -223,7 +222,5 @@ extern int update_fod_press_status(int value);
 extern void thp_send_cmd_to_hal(int cmd, int value);
 
 extern void update_active_status(bool status);
-
-extern void update_touch_irq_no(int irq_no);
 
 #endif
