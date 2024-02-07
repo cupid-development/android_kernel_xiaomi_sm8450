@@ -174,7 +174,6 @@ static int xiaomi_touch_dev_open(struct inode *inode, struct file *file)
 	struct xiaomi_touch_pdata *touch_pdata;
 
 	pr_info("%s\n", __func__);
-
 	dev = xiaomi_touch_dev_get(i);
 	if (!dev) {
 		pr_err("%s cant get dev\n", __func__);
@@ -215,7 +214,6 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 	struct xiaomi_touch_interface *touch_data = NULL;
 	struct xiaomi_touch *dev = pdata->device;
 	int user_cmd = _IOC_NR(cmd);
-	int ready_status;
 
 	mutex_lock(&dev->mutex);
 	ret = copy_from_user(&buf, (int __user *)argp, sizeof(buf));
@@ -234,8 +232,6 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 
 	pr_info("%s cmd:%d, touchId:%d, mode:%d, value:%d\n", __func__,
 		user_cmd, buf[0], buf[1], buf[2]);
-
-	ready_status = buf[1];
 
 	switch (user_cmd) {
 	case SET_CUR_VALUE:
@@ -268,44 +264,37 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 		break;
 	}
 
-	if (ready_status < 1000) {
-		if (user_cmd == SET_CUR_VALUE) {
-			touch_data->thp_cmd_buf[0] = user_cmd;
-			touch_data->thp_cmd_buf[1] = buf[0];
-			touch_data->thp_cmd_buf[2] = buf[1];
-			touch_data->thp_cmd_buf[3] = buf[2];
-			touch_data->thp_cmd_ready_size = 4;
-			touch_data->thp_cmd_size = 4;
-			touch_data->touch_event_status = 1;
-			// ready_status = 1;
-		} else {
-			if (user_cmd == SET_LONG_VALUE) {
-				touch_data->thp_cmd_buf[0] = user_cmd;
-				touch_data->thp_cmd_buf[1] = buf[0];
-				touch_data->thp_cmd_buf[2] = buf[1];
-				touch_data->thp_cmd_buf[3] = buf[2];
-				memcpy(&(touch_data->thp_cmd_buf[4]), &buf[3],
-				       sizeof(int) * buf[2]);
-				touch_data->thp_cmd_size = 4 + buf[2];
-				// touch_data->thp_cmd_ready_size = 4 + buf[2];
-				// ready_status = 4 + buf[2];
-				touch_data->touch_event_status = 1;
-			} else if (user_cmd == RESET_MODE) {
-				touch_data->thp_cmd_buf[0] = user_cmd;
-				touch_data->thp_cmd_buf[1] = buf[0];
-				touch_data->thp_cmd_buf[2] = buf[1];
-				touch_data->thp_cmd_size = 3;
-				// ready_status = 3;
-				touch_data->touch_event_status = 1;
-
-			} else {
-				goto exit;
-			}
-		}
+	if (buf[1] >= THP_CMD_BASE) {
+		goto exit;
 	}
 
+	if (user_cmd == SET_CUR_VALUE) {
+		touch_data->thp_cmd_buf[0] = user_cmd;
+		touch_data->thp_cmd_buf[1] = buf[0];
+		touch_data->thp_cmd_buf[2] = buf[1];
+		touch_data->thp_cmd_buf[3] = buf[2];
+		touch_data->thp_cmd_size = 4;
+	} else if (user_cmd == SET_LONG_VALUE) {
+		touch_data->thp_cmd_buf[0] = user_cmd;
+		touch_data->thp_cmd_buf[1] = buf[0];
+		touch_data->thp_cmd_buf[2] = buf[1];
+		touch_data->thp_cmd_buf[3] = buf[2];
+		memcpy(&(touch_data->thp_cmd_buf[4]), &buf[3],
+		       sizeof(int) * buf[2]);
+		touch_data->thp_cmd_size = 4 + buf[2];
+	} else if (user_cmd == RESET_MODE) {
+		touch_data->thp_cmd_buf[0] = user_cmd;
+		touch_data->thp_cmd_buf[1] = buf[0];
+		touch_data->thp_cmd_buf[2] = buf[1];
+		touch_data->thp_cmd_size = 3;
+	} else {
+		goto exit;
+	}
+
+	touch_data->touch_event_status = 1;
+	touch_data->touch_event_ready_status = 1;
 	touch_data->thp_cmd_ready_size = touch_data->thp_cmd_size;
-	touch_data->touch_event_ready_status = touch_data->touch_event_status;
+
 	memcpy(touch_data->thp_cmd_ready_buf, touch_data->thp_cmd_buf,
 	       touch_data->thp_cmd_size * sizeof(int));
 	sysfs_notify(&xiaomi_touch_device->dev->kobj, NULL,
