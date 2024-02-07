@@ -139,7 +139,6 @@ struct xiaomi_touch_interface {
 	int thp_dump_raw;
 	bool is_enable_touchdelta;
 	bool active_status;
-	bool finger_status;
 };
 
 struct xiaomi_touch {
