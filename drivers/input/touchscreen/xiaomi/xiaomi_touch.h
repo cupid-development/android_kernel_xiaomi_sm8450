@@ -34,8 +34,7 @@
 #define BTN_INFO 0x152
 #define MAX_TOUCH_ID 10
 #define RAW_BUF_NUM 4
-#define THP_CMD_BASE	1000
-
+#define THP_CMD_BASE 1000
 
 enum suspend_state {
 	XIAOMI_TOUCH_RESUME = 0,
@@ -56,28 +55,28 @@ enum MODE_CMD {
 };
 
 enum MODE_TYPE {
-	Touch_Game_Mode				= 0,
-	Touch_Active_MODE      		= 1,
-	Touch_UP_THRESHOLD			= 2,
-	Touch_Tolerance				= 3,
-	Touch_Aim_Sensitivity       = 4,
-	Touch_Tap_Stability         = 5,
-	Touch_Expert_Mode           = 6,
-	Touch_Edge_Filter      		= 7,
-	Touch_Panel_Orientation 	= 8,
-	Touch_Report_Rate      		= 9,
-	Touch_Fod_Enable       		= 10,
-	Touch_Aod_Enable       		= 11,
-	Touch_Resist_RF        		= 12,
-	Touch_Idle_Time        		= 13,
-	Touch_Doubletap_Mode   		= 14,
-	Touch_Grip_Mode        		= 15,
-	Touch_FodIcon_Enable   		= 16,
-	Touch_Nonui_Mode       		= 17,
-	Touch_Debug_Level      		= 18,
-	Touch_Power_Status     		= 19,
-	Touch_Mode_NUM         		= 20,
-	THP_LOCK_SCAN_MODE      	= THP_CMD_BASE + 0,
+	Touch_Game_Mode = 0,
+	Touch_Active_MODE = 1,
+	Touch_UP_THRESHOLD = 2,
+	Touch_Tolerance = 3,
+	Touch_Aim_Sensitivity = 4,
+	Touch_Tap_Stability = 5,
+	Touch_Expert_Mode = 6,
+	Touch_Edge_Filter = 7,
+	Touch_Panel_Orientation = 8,
+	Touch_Report_Rate = 9,
+	Touch_Fod_Enable = 10,
+	Touch_Aod_Enable = 11,
+	Touch_Resist_RF = 12,
+	Touch_Idle_Time = 13,
+	Touch_Doubletap_Mode = 14,
+	Touch_Grip_Mode = 15,
+	Touch_FodIcon_Enable = 16,
+	Touch_Nonui_Mode = 17,
+	Touch_Debug_Level = 18,
+	Touch_Power_Status = 19,
+	Touch_Mode_NUM = 20,
+	THP_LOCK_SCAN_MODE = THP_CMD_BASE + 0,
 };
 
 struct xiaomi_touch_interface {
@@ -119,16 +118,16 @@ struct xiaomi_touch_interface {
 };
 
 struct xiaomi_touch {
-	struct miscdevice 	misc_dev;
+	struct miscdevice misc_dev;
 	struct device *dev;
 	struct class *class;
 	struct attribute_group attrs;
-	struct mutex  mutex;
-	struct mutex  palm_mutex;
-	struct mutex  prox_mutex;
+	struct mutex mutex;
+	struct mutex palm_mutex;
+	struct mutex prox_mutex;
 	struct mutex gesture_single_tap_mutex;
 	struct mutex fod_press_status_mutex;
-	wait_queue_head_t 	wait_queue;
+	wait_queue_head_t wait_queue;
 };
 
 #define LAST_TOUCH_EVENTS_MAX 512
@@ -150,7 +149,7 @@ struct last_touch_event {
 	struct touch_event touch_event_buf[LAST_TOUCH_EVENTS_MAX];
 };
 
-struct xiaomi_touch_pdata{
+struct xiaomi_touch_pdata {
 	struct xiaomi_touch *device;
 	struct xiaomi_touch_interface *touch_data[2];
 	int suspend_state;
@@ -167,7 +166,7 @@ struct xiaomi_touch_pdata{
 	bool prox_changed;
 	const char *name;
 	int fod_press_status_value;
-	struct proc_dir_entry  *last_touch_events_proc;
+	struct proc_dir_entry *last_touch_events_proc;
 	struct last_touch_event *last_touch_events;
 };
 
@@ -181,9 +180,10 @@ extern int update_palm_sensor_value(int value);
 
 extern int update_prox_sensor_value(int value);
 
-extern int xiaomitouch_register_modedata(int touchId, struct xiaomi_touch_interface *data);
+extern int xiaomitouch_register_modedata(int touchId,
+					 struct xiaomi_touch_interface *data);
 
-extern int copy_touch_rawdata(char *raw_base,  int len);
+extern int copy_touch_rawdata(char *raw_base, int len);
 
 extern int update_touch_rawdata(void);
 
