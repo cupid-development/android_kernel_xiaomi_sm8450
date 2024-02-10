@@ -2827,6 +2827,15 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 		return 0;
 	}
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 start */
+	if (gtp_mode == Touch_Doubletap_Mode && goodix_core_data && gtp_value >= 0) {
+		if (gtp_value) {
+			goodix_core_data->gesture_type |= GESTURE_DOUBLE_TAP;
+		} else  {
+			goodix_core_data->gesture_type &= ~GESTURE_DOUBLE_TAP;
+		}
+		queue_work(goodix_core_data->gesture_wq, &goodix_core_data->gesture_work);
+		return 0;
+	}
 	if (gtp_mode == Touch_Aod_Enable && goodix_core_data && gtp_value >= 0) {
 		goodix_core_data->aod_status = gtp_value;
 		queue_work(goodix_core_data->gesture_wq, &goodix_core_data->gesture_work);
