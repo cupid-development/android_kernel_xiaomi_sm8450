@@ -1,7 +1,7 @@
 # SPDX-License-Identifier: GPL-2.0
 VERSION = 5
 PATCHLEVEL = 10
-SUBLEVEL = 189
+SUBLEVEL = 198
 EXTRAVERSION =
 NAME = Dare mighty things
 
@@ -534,6 +534,8 @@ KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE :=
 KBUILD_LDFLAGS :=
 CLANG_FLAGS :=
+# For use when analysis needs to call subshell with CC before cc-wrapper is built.
+NO_WRAPPER_CC := $(CC)
 
 CC := scripts/basic/cc-wrapper $(CC)
 
@@ -550,6 +552,7 @@ export KBUILD_AFLAGS AFLAGS_KERNEL AFLAGS_MODULE
 export KBUILD_AFLAGS_MODULE KBUILD_CFLAGS_MODULE KBUILD_LDFLAGS_MODULE
 export KBUILD_AFLAGS_KERNEL KBUILD_CFLAGS_KERNEL
 export PAHOLE_FLAGS
+export NO_WRAPPER_CC
 
 # Files to ignore in find ... statements
 

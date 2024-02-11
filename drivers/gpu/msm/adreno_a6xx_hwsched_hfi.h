@@ -24,6 +24,8 @@ struct a6xx_hwsched_hfi {
 	struct kgsl_memdesc *big_ib;
 	/** @big_ib_recurring: GMU buffer to hold big recurring IBs */
 	struct kgsl_memdesc *big_ib_recurring;
+	/** @perfctr_scratch: Buffer to hold perfcounter PM4 commands */
+	struct kgsl_memdesc *perfctr_scratch;
 	/** @msg_mutex: Mutex for accessing the msgq */
 	struct mutex msgq_mutex;
 };
@@ -102,13 +104,14 @@ int a6xx_hwsched_counter_inline_enable(struct adreno_device *adreno_dev,
  * a6xx_hfi_send_cmd_async - Send an hfi packet
  * @adreno_dev: Pointer to adreno device structure
  * @data: Data to be sent in the hfi packet
+ * @size_bytes: Size of the packet in bytes
  *
  * Send data in the form of an HFI packet to gmu and wait for
  * it's ack asynchronously
  *
  * Return: 0 on success and negative error on failure.
  */
-int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data);
+int a6xx_hfi_send_cmd_async(struct adreno_device *adreno_dev, void *data, u32 size_bytes);
 
 /**
  * a6xx_hwsched_submit_drawobj - Dispatch IBs to dispatch queues

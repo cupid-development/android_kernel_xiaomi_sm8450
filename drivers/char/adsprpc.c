@@ -65,6 +65,7 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
+#include <soc/qcom/socinfo.h>
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
@@ -567,6 +568,8 @@ struct fastrpc_apps {
 	struct hlist_head drivers;
 	spinlock_t hlock;
 	struct device *dev;
+	/* Indicates fastrpc device node info */
+	struct device *dev_fastrpc;
 	unsigned int latency;
 	int rpmsg_register;
 	/* Flag to determine fastrpc bus registration */
@@ -592,6 +595,8 @@ struct fastrpc_apps {
 	unsigned int lowest_capacity_core_count;
 	/* Flag to check if PM QoS vote needs to be done for only one core */
 	bool single_core_latency_vote;
+	/* Indicates cdsp device status */
+	int fastrpc_cdsp_status;
 };
 
 struct fastrpc_mmap {
@@ -616,8 +621,7 @@ struct fastrpc_mmap {
 	uintptr_t attr;
 	struct timespec64 map_start_time;
 	struct timespec64 map_end_time;
-	/* Mapping for fastrpc shell */
-	bool is_filemap;
+	bool is_filemap; /* flag to indicate map used in process init */
 	unsigned int ctx_refs; /* Indicates reference count for context map */
 };
 
@@ -2485,10 +2489,10 @@ static void fastrpc_ramdump_collection(int cid)
 				__func__, ret);
 		hlist_del_init(&buf->hn_init);
 
-		spin_lock(&me->hlock);
+		spin_lock_irqsave(&me->hlock, irq_flags);
 		if (chan->buf && chan->buf->virt)
 			memset(chan->buf->virt, 0, MINI_DUMP_DBG_SIZE);
-		spin_unlock(&me->hlock);
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
 		if (fl) {
 			spin_lock_irqsave(&me->hlock, irq_flags);
 			if (fl->file_close)
@@ -3191,6 +3195,27 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	fastrpc_update_txmsg_buf(channel_ctx, msg, err, ns, xo_time_in_us);
  bail:
 	return err;
+}
+
+
+/*
+ * fastrpc_get_cdsp_status - Reads the property string from soc_info
+			    denoted for cdsp part, and updates
+ *                          the cdsp device availability status
+ *                          if the cdsp is not defective.
+ * @me  : pointer to fastrpc_apps.
+ */
+
+static void fastrpc_get_cdsp_status(struct fastrpc_apps *me)
+{
+	if (socinfo_get_part_info(PART_NSP)) {
+		me->fastrpc_cdsp_status = 0;
+		ADSPRPC_ERR(
+			"cdsp part defective with status:%x\n", me->fastrpc_cdsp_status);
+	} else {
+		me->fastrpc_cdsp_status = 1;
+		ADSPRPC_INFO("cdsp available with status: %x\n", me->fastrpc_cdsp_status);
+	}
 }
 
 /*
@@ -4294,6 +4319,8 @@ static int fastrpc_init_create_static_process(struct fastrpc_file *fl,
 		mutex_lock(&fl->map_mutex);
 		err = fastrpc_mmap_create(fl, -1, NULL, 0, init->mem,
 			 init->memlen, ADSP_MMAP_REMOTE_HEAP_ADDR, &mem);
+		if (mem)
+			mem->is_filemap = true;
 		mutex_unlock(&fl->map_mutex);
 		if (err)
 			goto bail;
@@ -7152,6 +7179,7 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	struct fastrpc_file *fl;
 	struct hlist_node *n;
 	int cid = -1;
+	unsigned long irq_flags = 0;
 
 	ctx = container_of(nb, struct fastrpc_channel_ctx, nb);
 	cid = ctx - &me->channel[0];
@@ -7171,13 +7199,13 @@ static int fastrpc_restart_notifier_cb(struct notifier_block *nb,
 	case QCOM_SSR_AFTER_SHUTDOWN:
 		trace_rproc_qcom_event(gcinfo[cid].subsys,
 			"QCOM_SSR_AFTER_SHUTDOWN", "fastrpc_restart_notifier-enter");
-		spin_lock(&me->hlock);
+		spin_lock_irqsave(&me->hlock, irq_flags);
 		hlist_for_each_entry_safe(fl, n, &me->drivers, hn) {
 			if (fl->cid != cid)
 				continue;
 			complete(&fl->shutdown);
 		}
-		spin_unlock(&me->hlock);
+		spin_unlock_irqrestore(&me->hlock, irq_flags);
 		ctx->subsystemstate = SUBSYSTEM_DOWN;
 		if (cid == RH_CID) {
 			if (me->ramdump_handle)
@@ -7538,6 +7566,49 @@ bail:
 	return err;
 }
 
+/*
+ * fastrpc_cdsp_status_show - Updates the buffer with remote cdsp status
+ *                           by reading the fastrpc node.
+ * @dev : pointer to device node.
+ * @attr: pointer to device attribute.
+ * @buf : Output parameter to be updated with remote cdsp status.
+ * Return : bytes written to buffer.
+ */
+
+static ssize_t fastrpc_cdsp_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	/*
+	 * Default remote DSP status: 0
+	 * driver possibly not probed yet or not the main device.
+	 */
+
+	if (!dev || !dev->driver ||
+		!of_device_is_compatible(dev->of_node, "qcom,msm-fastrpc-compute")) {
+		ADSPRPC_ERR("Driver not probed yet or not the main device\n");
+		return 0;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			me->fastrpc_cdsp_status);
+}
+
+/* Remote cdsp status attribute declaration as read only */
+static DEVICE_ATTR_RO(fastrpc_cdsp_status);
+
+/* Declaring attribute for remote dsp */
+static struct attribute *msm_remote_dsp_attrs[] = {
+	&dev_attr_fastrpc_cdsp_status.attr,
+	NULL
+};
+
+/* Defining remote dsp attributes in attributes group */
+static struct attribute_group msm_remote_dsp_attr_group = {
+	.attrs = msm_remote_dsp_attrs,
+};
+
 static int fastrpc_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -7549,6 +7620,15 @@ static int fastrpc_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
+
+		err = sysfs_create_group(&pdev->dev.kobj, &msm_remote_dsp_attr_group);
+		if (err) {
+			ADSPRPC_ERR(
+				"Initialization of sysfs create group failed with %d\n",
+				err);
+			goto bail;
+		}
+
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
@@ -7958,6 +8038,7 @@ static int __init fastrpc_device_init(void)
 	}
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
+	fastrpc_get_cdsp_status(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
 	err = bus_register(&fastrpc_bus_type);
