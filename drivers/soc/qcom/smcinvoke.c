@@ -25,6 +25,7 @@
 #include <linux/msm_ion.h>
 #include <linux/mem-buf.h>
 #include <linux/of_platform.h>
+#include <linux/overflow.h>
 #include <linux/firmware.h>
 #include <linux/qcom_scm.h>
 #include <linux/freezer.h>
@@ -892,15 +893,6 @@ static struct smcinvoke_cb_txn *find_cbtxn_locked(
 		}
 	}
 	return NULL;
-}
-
-/*
- * size_add saturates at SIZE_MAX. If integer overflow is detected,
- * this function would return SIZE_MAX otherwise normal a+b is returned.
- */
-static inline size_t size_add(size_t a, size_t b)
-{
-	return (b > (SIZE_MAX - a)) ? SIZE_MAX : a + b;
 }
 
 /*
