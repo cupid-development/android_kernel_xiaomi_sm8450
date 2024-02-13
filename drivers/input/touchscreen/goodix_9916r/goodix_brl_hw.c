@@ -322,7 +322,7 @@ static int brl_reset(struct goodix_ts_core *cd, int delay)
 	return brl_select_spi_mode(cd);
 }
 
-static int brl_irq_enbale(struct goodix_ts_core *cd, bool enable)
+static int brl_irq_enable(struct goodix_ts_core *cd, bool enable)
 {
 	if (enable && !atomic_cmpxchg(&cd->irq_enabled, 0, 1)) {
 		enable_irq(cd->irq);
@@ -335,7 +335,7 @@ static int brl_irq_enbale(struct goodix_ts_core *cd, bool enable)
 		ts_info("Irq disabled");
 		return 0;
 	}
-	ts_debug("warnning: irq deepth inbalance!");
+	ts_debug("warning: irq depth inbalance!");
 	return 0;
 }
 
@@ -1572,7 +1572,7 @@ static int brld_get_cap_data(struct goodix_ts_core *cd,
 	int ret;
 
 	/* disable irq & close esd */
-	brl_irq_enbale(cd, false);
+	brl_irq_enable(cd, false);
 	goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
 
 	info->buff[0] = rx;
@@ -1619,7 +1619,7 @@ exit:
 	temp_cmd.len = 5;
 	brl_send_cmd(cd, &temp_cmd);
 	/* enable irq & esd */
-	brl_irq_enbale(cd, true);
+	brl_irq_enable(cd, true);
 	goodix_ts_blocking_notify(NOTIFY_ESD_ON, NULL);
 	return ret;
 }
@@ -1650,7 +1650,7 @@ static int brl_get_capacitance_data(struct goodix_ts_core *cd,
 		return brld_get_cap_data(cd, info);
 
 	/* disable irq & close esd */
-	brl_irq_enbale(cd, false);
+	brl_irq_enable(cd, false);
 	goodix_ts_blocking_notify(NOTIFY_ESD_OFF, NULL);
 
     /* switch rawdata mode */
@@ -1713,7 +1713,7 @@ exit:
 	val = 0;
 	brl_write(cd, flag_addr, &val, 1);
 	/* enable irq & esd */
-	brl_irq_enbale(cd, true);
+	brl_irq_enable(cd, true);
 	goodix_ts_blocking_notify(NOTIFY_ESD_ON, NULL);
 	return ret;
 }
@@ -1794,7 +1794,7 @@ static struct goodix_ts_hw_ops brl_hw_ops = {
 	.suspend = brl_suspend,
 	.gesture = brl_gesture,
 	.reset = brl_reset,
-	.irq_enable = brl_irq_enbale,
+	.irq_enable = brl_irq_enable,
 	.read = brl_read,
 	.write = brl_write,
 	.read_flash = brl_flash_read,

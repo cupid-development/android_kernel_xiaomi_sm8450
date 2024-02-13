@@ -33,6 +33,7 @@
 
 static struct platform_device *goodix_pdev;
 struct goodix_bus_interface goodix_spi_bus;
+struct device *global_spi_parent_device;
 
 /**
  * goodix_spi_read_bra- read device register through spi bus
@@ -222,6 +223,7 @@ static int goodix_spi_probe(struct spi_device *spi)
 	else
 		goodix_spi_bus.read = goodix_spi_read;
 	goodix_spi_bus.write = goodix_spi_write;
+	global_spi_parent_device = spi->controller->dev.parent;
 	/* ts core device */
 	goodix_pdev = kzalloc(sizeof(struct platform_device), GFP_KERNEL);
 	if (!goodix_pdev)
