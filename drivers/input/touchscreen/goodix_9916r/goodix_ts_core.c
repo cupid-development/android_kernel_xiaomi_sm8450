@@ -36,6 +36,7 @@
 #define DISP_ID_DET (301 + 119)
 #define DISP_ID1_DET (301 + 117)
 
+extern struct device *global_spi_parent_device;
 struct goodix_module goodix_modules;
 int core_module_prob_sate = CORE_MODULE_UNPROBED;
 
@@ -44,10 +45,6 @@ struct goodix_ts_core *goodix_core_data;
 /*N17 code for HQ-292221 by gaoxue at 2023/4/19 end*/
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
-
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 start */
-extern int gsx_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value);
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 end */
 
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
 #include "../xiaomi/xiaomi_touch.h"
@@ -1315,6 +1312,7 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 	struct goodix_ts_core *cd = input_get_drvdata(dev);
 	unsigned int touch_num = touch_data->touch_num;
 	int i;
+	static int pre_finger_num;
 	int resolution_factor;
 	int report_x;
 	int report_y;
@@ -1363,7 +1361,25 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 		}
 	}
 
-	input_report_key(dev, BTN_TOUCH, touch_num > 0 ? 1 : 0);
+	if (touch_num && !pre_finger_num) { // first touch down
+		input_report_key(dev, BTN_TOUCH, 1);
+		input_report_key(dev, BTN_TOOL_FINGER, 1);
+		if (global_spi_parent_device != NULL) {
+			pm_runtime_set_autosuspend_delay(global_spi_parent_device, 250);
+			pm_runtime_use_autosuspend(global_spi_parent_device);
+			pm_runtime_enable(global_spi_parent_device);
+		}
+	} else if (!touch_num && pre_finger_num) { // last touch up
+		input_report_key(dev, BTN_TOUCH, 0);
+		input_report_key(dev, BTN_TOOL_FINGER, 0);
+		if (global_spi_parent_device != NULL) {
+			pm_runtime_set_autosuspend_delay(global_spi_parent_device, 50);
+			pm_runtime_use_autosuspend(global_spi_parent_device);
+			pm_runtime_enable(global_spi_parent_device);
+		}
+	}
+	pre_finger_num = touch_num;
+
 	input_sync(dev);
 
 	mutex_unlock(&dev->mutex);
@@ -1408,10 +1424,21 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 	struct goodix_ts_esd *ts_esd = &core_data->ts_esd;
 	int ret;
 
-	disable_irq_nosync(core_data->irq);
-
 	ts_esd->irq_status = true;
 	core_data->irq_trig_cnt++;
+	pm_stay_awake(core_data->bus->dev);
+#ifdef CONFIG_PM
+	if (core_data->tp_pm_suspend) {
+		ts_info("device in suspend, wait to resume");
+		ret = wait_for_completion_timeout(&core_data->pm_resume_completion, msecs_to_jiffies(300));
+		if (!ret) {
+			pm_relax(core_data->bus->dev);
+			ts_err("system can't finish resuming procedure");
+			return IRQ_HANDLED;
+		}
+	}
+#endif
+
 	/* inform external module */
 	mutex_lock(&goodix_modules.mutex);
 	list_for_each_entry_safe(ext_module, next,
@@ -1421,7 +1448,7 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 		ret = ext_module->funcs->irq_event(core_data, ext_module);
 		if (ret == EVT_CANCEL_IRQEVT) {
 			mutex_unlock(&goodix_modules.mutex);
-			enable_irq(core_data->irq);
+			pm_relax(core_data->bus->dev);
 			return IRQ_HANDLED;
 		}
 	}
@@ -1444,12 +1471,13 @@ static irqreturn_t goodix_ts_threadirq_func(int irq, void *data)
 			goodix_ts_request_handle(core_data, ts_event);
 	}
 
-	enable_irq(core_data->irq);
+	hw_ops->after_event_handler(core_data);
+	pm_relax(core_data->bus->dev);
 	return IRQ_HANDLED;
 }
 
 /**
- * goodix_ts_init_irq - Requset interrput line from system
+ * goodix_ts_init_irq - Request interrupt line from system
  * @core_data: pointer to touch core data
  * return: 0 ok, <0 failed
  */
@@ -1473,7 +1501,7 @@ static int goodix_ts_irq_setup(struct goodix_ts_core *core_data)
 				      GOODIX_CORE_DRIVER_NAME,
 				      core_data);
 	if (ret < 0)
-		ts_err("Failed to requeset threaded irq:%d", ret);
+		ts_err("Failed to request threaded irq:%d", ret);
 	else
 		atomic_set(&core_data->irq_enabled, 1);
 
@@ -1648,9 +1676,6 @@ static int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 	}
 
 	core_data->input_dev = input_dev;
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 start */
-	core_data->input_dev->event = gsx_gesture_switch;
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 end */
 	input_set_drvdata(input_dev, core_data);
 
 	input_dev->name = GOODIX_CORE_DRIVER_NAME;
@@ -1980,7 +2005,7 @@ static int goodix_ts_suspend(struct goodix_ts_core *core_data)
 	else
 		goodix_ts_power_off(core_data);
 
-	/* inform exteranl modules */
+	/* inform external modules */
 	mutex_lock(&goodix_modules.mutex);
 	if (!list_empty(&goodix_modules.head)) {
 		list_for_each_entry_safe(ext_module, next,
@@ -2002,6 +2027,7 @@ static int goodix_ts_suspend(struct goodix_ts_core *core_data)
 
 out:
 	goodix_ts_release_connects(core_data);
+	xiaomi_touch_set_suspend_state(1);
 	ts_info("Suspend end");
 	return 0;
 }
@@ -2087,6 +2113,7 @@ out:
 	hw_ops->irq_enable(core_data, true);
 	/* open esd */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
+	xiaomi_touch_set_suspend_state(0);
 	ts_info("Resume end");
 	return 0;
 }
@@ -2197,7 +2224,7 @@ int goodix_ts_fb_notifier_callback(struct notifier_block *self,
 }
 #endif
 
-#if IS_ENABLED(CONFIG_PM)
+#ifdef CONFIG_PM
 /**
  * goodix_ts_pm_suspend - PM suspend function
  * Called by kernel during system suspend phrase
@@ -2207,7 +2234,13 @@ static int goodix_ts_pm_suspend(struct device *dev)
 	struct goodix_ts_core *core_data =
 		dev_get_drvdata(dev);
 
-	return goodix_ts_suspend(core_data);
+	ts_info("%s enter", __func__);
+
+	if (device_may_wakeup(dev) && core_data->gesture_type)
+		enable_irq_wake(core_data->irq);
+	core_data->tp_pm_suspend = true;
+	reinit_completion(&core_data->pm_resume_completion);
+	return 0;
 }
 /**
  * goodix_ts_pm_resume - PM resume function
@@ -2218,7 +2251,13 @@ static int goodix_ts_pm_resume(struct device *dev)
 	struct goodix_ts_core *core_data =
 		dev_get_drvdata(dev);
 
-	return goodix_ts_resume(core_data);
+	ts_info("%s enter", __func__);
+
+	if (device_may_wakeup(dev) && core_data->gesture_type)
+		disable_irq_wake(core_data->irq);
+	core_data->tp_pm_suspend = false;
+	complete(&core_data->pm_resume_completion);
+	return 0;
 }
 #endif
 
@@ -2685,6 +2724,7 @@ static void goodix_set_gesture_work(struct work_struct *work)
 {
 	struct goodix_ts_core *core_data =
 		container_of(work, struct goodix_ts_core, gesture_work);
+
 	ts_info("aod is 0x%x", core_data->aod_status);
 	ts_info("enable is 0x%x", core_data->gesture_type);
 	if (core_data->aod_status)
@@ -3179,6 +3219,10 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	/* goodix fb test */
 	// fb_firefly_register(test_suspend, test_resume);
 
+	core_data->tp_pm_suspend = false;
+	init_completion(&core_data->pm_resume_completion);
+	device_init_wakeup(&pdev->dev, 1);
+
 	core_data->init_stage = CORE_INIT_STAGE1;
 	goodix_modules.core_data = core_data;
 	core_module_prob_sate = CORE_MODULE_PROB_SUCCESS;
@@ -3231,7 +3275,7 @@ static int goodix_ts_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#if IS_ENABLED(CONFIG_PM)
+#ifdef CONFIG_PM
 static const struct dev_pm_ops dev_pm_ops = {
 	.suspend = goodix_ts_pm_suspend,
 	.resume = goodix_ts_pm_resume,
@@ -3248,7 +3292,7 @@ static struct platform_driver goodix_ts_driver = {
 	.driver = {
 		.name = GOODIX_CORE_DRIVER_NAME,
 		.owner = THIS_MODULE,
-#if IS_ENABLED(CONFIG_PM)
+#ifdef CONFIG_PM
 		.pm = &dev_pm_ops,
 #endif
 	},
