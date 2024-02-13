@@ -308,9 +308,9 @@ static int gsx_gesture_ist(struct goodix_ts_core *cd,
 		if (cd->gesture_type & GESTURE_DOUBLE_TAP) {
 			ts_info("get DOUBLE-TAP gesture");
 /*N17 code for HQ-299273 by jiangyue at 2023/7/13 start*/
-			input_report_key(cd->input_dev, KEY_POWER, 1);
+			input_report_key(cd->input_dev, KEY_WAKEUP, 1);
 			input_sync(cd->input_dev);
-			input_report_key(cd->input_dev, KEY_POWER, 0);
+			input_report_key(cd->input_dev, KEY_WAKEUP, 0);
 /*N17 code for HQ-299273 by jiangyue at 2023/7/13 end*/
 			input_sync(cd->input_dev);
 		} else {
@@ -405,25 +405,6 @@ static int gsx_gesture_before_resume(struct goodix_ts_core *cd,
 
 	return EVT_CANCEL_RESUME;
 }
-
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 start */
-#define	WAKEUP_OFF	0x04
-#define	WAKEUP_ON	0x05
-int gsx_gesture_switch(struct input_dev *dev, unsigned int type, unsigned int code, int value)
-{
-	if (type == EV_SYN && code == SYN_CONFIG) {
-		if (value == WAKEUP_OFF) {
-			gsx_gesture->ts_core->gesture_type &= ~GESTURE_DOUBLE_TAP;
-			ts_info("gsx_gesture disabled !");
-		} else if (value == WAKEUP_ON) {
-			gsx_gesture->ts_core->gesture_type |= GESTURE_DOUBLE_TAP;
-			ts_info("gsx_gesture enabled !");
-		}
-	}
-
-	return EVT_CANCEL_RESUME;
-}
-/* N17 code for HQ-291091 by jiangyue at 2023/6/2 end */
 
 static struct goodix_ext_module_funcs gsx_gesture_funcs = {
 	.irq_event = gsx_gesture_ist,
