@@ -6517,7 +6517,7 @@ static void fts_update_touchmode_data(void)
 	};
 	int temp_value = 0;
 	const struct fts_hw_platform_data *bdata = fts_info->board;
-	static expert_mode = false;
+	static int expert_mode = false;
 
 	if (fts_info->enable_touch_raw)
 		return;
@@ -7669,7 +7669,7 @@ static int fts_write_charge_status(int status)
 	return res;
 }
 
-static int fts_get_charging_status()
+static int fts_get_charging_status(void)
 {
 	struct power_supply *usb_psy;
 	struct power_supply *dc_psy;
