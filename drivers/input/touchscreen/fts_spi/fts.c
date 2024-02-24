@@ -2755,7 +2755,7 @@ void fts_enable_thp_onoff(int enable)
 	return;
 }
 
-int fts_enable_touch_raw(bool en)
+int fts_enable_touch_raw(int en)
 {
 	fts_enable_thp_onoff(en);
 	return 0;
