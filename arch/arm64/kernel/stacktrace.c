@@ -210,7 +210,10 @@ noinline notrace void arch_stack_walk(stack_trace_consume_fn consume_entry,
 		start_backtrace(&frame, regs->regs[29], regs->pc);
 	else if (task == current)
 		start_backtrace(&frame,
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wframe-address"
 				(unsigned long)__builtin_frame_address(1),
+#pragma GCC diagnostic pop
 				(unsigned long)__builtin_return_address(0));
 	else
 		start_backtrace(&frame, thread_saved_fp(task),
