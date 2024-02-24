@@ -140,7 +140,6 @@ struct xiaomi_touch_interface {
 	int (*get_touch_tx_num)(void);
 	int (*get_touch_x_resolution)(void);
 	int (*get_touch_y_resolution)(void);
-	int (*set_up_interrupt_mode)(int en);
 	int (*enable_touch_raw)(int en);
 	int (*enable_touch_delta)(bool en);
 	u8 (*panel_vendor_read)(void);
