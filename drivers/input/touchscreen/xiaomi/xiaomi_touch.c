@@ -282,8 +282,6 @@ int xiaomitouch_register_modedata(int touchId,
 	if (data->get_touch_super_resolution_factor)
 		touch_data->get_touch_super_resolution_factor =
 			data->get_touch_super_resolution_factor;
-	if (data->set_up_interrupt_mode)
-		touch_data->set_up_interrupt_mode = data->set_up_interrupt_mode;
 
 	mutex_unlock(&xiaomi_touch_dev.mutex);
 
@@ -1277,43 +1275,6 @@ static ssize_t resolution_factor_show(struct device *dev,
 	return snprintf(buf, PAGE_SIZE, "%d", factor);
 }
 
-static ssize_t touch_thp_film_show(struct device *dev,
-				   struct device_attribute *attr, char *buf)
-
-{
-	return snprintf(buf, PAGE_SIZE, "%d", 1);
-}
-
-static ssize_t touch_thp_film_store(struct device *dev,
-				    struct device_attribute *attr,
-				    const char *buf, size_t count)
-{
-	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
-	unsigned int input;
-
-	if (!pdata) {
-		return -EXDEV;
-	}
-
-	if (sscanf(buf, "%d", &input) < 0) {
-		return -EINVAL;
-	}
-
-	if (input >= 0) {
-		thp_send_cmd_to_hal(THP_HAL_FILM_SENSOR, input);
-		if (input == 0) {
-			if (touch_pdata->touch_data[0]->set_up_interrupt_mode) {
-				touch_pdata->touch_data[0]
-					->set_up_interrupt_mode(0);
-			}
-		}
-	}
-
-	pr_info("%s value:%d\n", __func__, input);
-
-	return count;
-}
-
 static ssize_t touch_thp_mem_notify_show(struct device *dev,
 					 struct device_attribute *attr,
 					 char *buf)
@@ -1371,9 +1332,6 @@ static DEVICE_ATTR(touch_thp_dump, (S_IRUGO | S_IWUSR | S_IWGRP),
 
 static DEVICE_ATTR(touch_thp_noisefilter, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   thp_noisefilter_show, thp_noisefilter_store);
-
-static DEVICE_ATTR(touch_thp_film, (S_IRUGO | S_IWUSR | S_IWGRP),
-		   touch_thp_film_show, touch_thp_film_store);
 
 static DEVICE_ATTR(touch_thp_mem_notify, (S_IRUGO | S_IWUSR | S_IWGRP),
 		   touch_thp_mem_notify_show, touch_thp_mem_notify_store);
@@ -1449,7 +1407,6 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_touch_thp_smooth.attr,
 	&dev_attr_touch_thp_dump.attr,
 	&dev_attr_touch_thp_noisefilter.attr,
-	&dev_attr_touch_thp_film.attr,
 	&dev_attr_touch_thp_mem_notify.attr,
 	&dev_attr_palm_sensor.attr,
 	&dev_attr_palm_sensor_data.attr,
