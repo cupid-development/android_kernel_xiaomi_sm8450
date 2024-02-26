@@ -57,7 +57,7 @@ static int goodix_get_charging_status(void);
 struct drm_panel *active_panel;
 extern struct device_node *gf_spi_dp;
 
-static int goodix_ts_check_panel()
+static int goodix_ts_check_panel(void)
 {
 	int i;
 	int count;
