@@ -4089,7 +4089,7 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	goodix_modules.core_data = core_data;
 	core_module_prob_sate = CORE_MODULE_PROB_SUCCESS;
 
-	ts_info("goodix_ts_core probe success");
+	ts_info("gt9916 probe success");
 
 	/* Try start a thread to get config-bin info */
 	ret = goodix_start_later_init(core_data);
