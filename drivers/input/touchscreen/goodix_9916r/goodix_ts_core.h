@@ -79,6 +79,8 @@
 #define GAME_ARRAY_SIZE   3
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
 
+#define GOODIX_FOD_AREA_REPORT /* support fod function */
+
 /*N17 code for HQ-291116 by gaoxue at 2023/4/24 start*/
 #define TP_INFO_MAX_LENGTH		50
 #define GOODIX_LOCKDOWN_SIZE		8
@@ -558,6 +560,7 @@ struct goodix_pen_coords {
 struct goodix_touch_data {
 	int touch_num;
 	struct goodix_ts_coords coords[GOODIX_MAX_TOUCH];
+	unsigned int overlay;
 };
 
 struct goodix_ts_key {
@@ -687,6 +690,7 @@ struct goodix_ts_core {
 	struct input_dev *pen_dev;
 	/* TODO counld we remove this from core data? */
 	struct goodix_ts_event ts_event;
+	u8 eventsdata; // after shift
 
 	struct work_struct self_check_work;
 
@@ -706,6 +710,7 @@ struct goodix_ts_core {
 	atomic_t suspended;
 	/* when this flag is true, driver should not clean the sync flag */
 	bool tools_ctrl_sync;
+	bool fod_finger;
 
 	struct notifier_block ts_notifier;
 	struct goodix_ts_esd ts_esd;
@@ -750,6 +755,7 @@ struct goodix_ts_core {
 	struct completion pm_resume_completion;
 	int aod_status;
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+	int fod_status;
 	struct delayed_work panel_notifier_register_work;
 };
 
