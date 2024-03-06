@@ -874,6 +874,39 @@ static ssize_t goodix_ts_aod_store(struct device *dev,
 }
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
 
+/* fod gesture show */
+static ssize_t goodix_ts_fod_show(struct device *dev,
+								  struct device_attribute *attr, char *buf)
+{
+	int r = 0;
+
+	r = snprintf(buf, PAGE_SIZE, "state:%s\n",
+				 goodix_core_data->fod_status ? "enabled" : "disabled");
+
+	return r;
+}
+
+/* fod gesture_store */
+static ssize_t goodix_ts_fod_store(struct device *dev,
+								   struct device_attribute *attr,
+								   const char *buf, size_t count)
+{
+	if (!buf || count <= 0)
+		return -EINVAL;
+
+	if (buf[0] != '0') {
+		goodix_core_data->fod_status = 1;
+		queue_work(goodix_core_data->gesture_wq,
+				   &goodix_core_data->gesture_work);
+	} else {
+		goodix_core_data->fod_status = 0;
+		queue_work(goodix_core_data->gesture_wq,
+				   &goodix_core_data->gesture_work);
+	}
+
+	return count;
+}
+
 static DEVICE_ATTR(driver_info, 0440,
 		driver_info_show, NULL);
 static DEVICE_ATTR(chip_info, 0440,
@@ -900,6 +933,8 @@ static DEVICE_ATTR(charger_info, 0664,
 static DEVICE_ATTR(aod, 0664,
 		goodix_ts_aod_show, goodix_ts_aod_store);
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+static DEVICE_ATTR(fod_enable, 0664, goodix_ts_fod_show, goodix_ts_fod_store);
+
 
 static struct attribute *sysfs_attrs[] = {
 	&dev_attr_driver_info.attr,
@@ -916,6 +951,7 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_charger_info.attr,
 	&dev_attr_aod.attr,
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+	&dev_attr_fod_enable.attr,
 	NULL,
 };
 
@@ -1320,6 +1356,30 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 
 	mutex_lock(&dev->mutex);
 
+#ifdef GOODIX_FOD_AREA_REPORT
+	if ((goodix_core_data->eventsdata & 0x08) &&
+		(goodix_core_data->fod_status) && (!goodix_core_data->fod_finger)) {
+			ts_info("fod down");
+			goodix_core_data->fod_finger = true;
+			input_report_key(dev, BTN_INFO, 1);
+			input_sync(dev);
+			update_fod_press_status(1);
+			//mi_disp_lhbm_fod_set_finger_event(0, 1, true);
+			ts_info("fod finger is %d", goodix_core_data->fod_finger);
+		} else if ((goodix_core_data->eventsdata & 0x08) != 0x08 &&
+					goodix_core_data->fod_finger) {
+			ts_info("ts fod up");
+			input_report_key(dev, BTN_INFO, 0);
+			input_report_abs(dev, ABS_MT_WIDTH_MAJOR, 0);
+			input_report_abs(dev, ABS_MT_WIDTH_MINOR, 0);
+			input_sync(dev);
+			update_fod_press_status(0);
+			//mi_disp_lhbm_fod_set_finger_event(0, 0, true);
+			goodix_core_data->fod_finger = false;
+			ts_info("fod finger is %d", goodix_core_data->fod_finger);
+	}
+#endif
+
 	for (i = 0; i < GOODIX_MAX_TOUCH; i++) {
 		if (touch_data->coords[i].status == TS_TOUCH) {
 			ts_debug("report: id[%d], x %d, y %d, w %d", i,
@@ -1352,6 +1412,15 @@ static void goodix_ts_report_finger(struct input_dev *dev,
 			input_mt_report_slot_state(dev, MT_TOOL_FINGER, true);
 			input_report_abs(dev, ABS_MT_POSITION_X, report_x);
 			input_report_abs(dev, ABS_MT_POSITION_Y, report_y);
+
+			if ((goodix_core_data->eventsdata & 0x08) != 0x08 ||
+				 !goodix_core_data->fod_status)
+				touch_data->overlay = 0;
+
+			input_report_abs(dev, ABS_MT_WIDTH_MAJOR,
+							 touch_data->overlay);
+			input_report_abs(dev, ABS_MT_WIDTH_MINOR,
+							 touch_data->overlay);
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
 			last_touch_events_collect(i, 1);
 		} else {
@@ -1713,6 +1782,7 @@ static int goodix_ts_input_dev_config(struct goodix_ts_core *core_data)
 	input_set_capability(input_dev, EV_KEY, KEY_POWER);
 	input_set_capability(input_dev, EV_KEY, KEY_WAKEUP);
 	input_set_capability(input_dev, EV_KEY, KEY_GOTO);
+	input_set_capability(input_dev, EV_KEY, BTN_INFO);
 
 	r = input_register_device(input_dev);
 	if (r < 0) {
@@ -1755,6 +1825,7 @@ static int goodix_ts_pen_dev_config(struct goodix_ts_core *core_data)
 	set_bit(ABS_TILT_Y, pen_dev->absbit);
 	set_bit(BTN_STYLUS, pen_dev->keybit);
 	set_bit(BTN_STYLUS2, pen_dev->keybit);
+	set_bit(BTN_INFO, pen_dev->keybit);
 	set_bit(BTN_TOUCH, pen_dev->keybit);
 	set_bit(BTN_TOOL_PEN, pen_dev->keybit);
 	set_bit(INPUT_PROP_DIRECT, pen_dev->propbit);
@@ -1934,6 +2005,15 @@ static void goodix_ts_release_connects(struct goodix_ts_core *core_data)
 
 	mutex_lock(&input_dev->mutex);
 
+	if (core_data->fod_finger != false) {
+		input_event(input_dev, EV_KEY, BTN_INFO, 0);
+		input_event(input_dev, EV_ABS, ABS_MT_WIDTH_MAJOR, 0);
+		input_event(input_dev, EV_ABS, ABS_MT_WIDTH_MINOR, 0);
+		input_sync(input_dev);
+		update_fod_press_status(0);
+		ts_info("ts fod up for suspend");
+	}
+
 	for (i = 0; i < GOODIX_MAX_TOUCH; i++) {
 		input_mt_slot(input_dev, i);
 		input_mt_report_slot_state(input_dev,
@@ -1968,6 +2048,10 @@ static int goodix_ts_suspend(struct goodix_ts_core *core_data)
 
 	ts_info("Suspend start");
 	atomic_set(&core_data->suspended, 1);
+
+	if (core_data->fod_status == 3)
+		core_data->fod_status = 1;
+
 	/* disable irq */
 	hw_ops->irq_enable(core_data, false);
 
@@ -2713,6 +2797,45 @@ int goodix_ts_get_lockdown_info(struct goodix_ts_core *cd)
 }
 /*N17 code for HQ-291116 by gaoxue at 2023/4/24 end*/
 
+static ssize_t goodix_ts_fod_test_store(struct device *dev,
+										struct device_attribute *attr,
+										const char *buf, size_t count)
+{
+	int value = 0;
+	struct goodix_ts_core *info = dev_get_drvdata(dev);
+
+	ts_info("%s,buf:%s,count:%u\n", __func__, buf, count);
+	sscanf(buf, "%u", &value);
+
+	if (value) {
+		input_report_key(info->input_dev, BTN_INFO, 1);
+		//mi_disp_lhbm_fod_set_finger_event(0, 1, true);
+		input_sync(info->input_dev);
+		input_mt_slot(info->input_dev, 0);
+		input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 1);
+		input_report_key(info->input_dev, BTN_TOUCH, 1);
+		input_report_key(info->input_dev, BTN_TOOL_FINGER, 1);
+		input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, 0);
+		input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 1);
+		input_report_abs(info->input_dev, ABS_MT_POSITION_X, 540);
+		input_report_abs(info->input_dev, ABS_MT_POSITION_Y, 2149);
+		input_sync(info->input_dev);
+	} else {
+		input_mt_slot(info->input_dev, 0);
+		input_report_abs(info->input_dev, ABS_MT_WIDTH_MINOR, 0);
+		input_mt_report_slot_state(info->input_dev, MT_TOOL_FINGER, 0);
+		input_report_abs(info->input_dev, ABS_MT_TRACKING_ID, -1);
+		input_report_key(info->input_dev, BTN_INFO, 0);
+		//mi_disp_lhbm_fod_set_finger_event(0, 0, true);
+		input_sync(info->input_dev);
+	}
+
+	return count;
+}
+
+static DEVICE_ATTR(fod_test, (S_IRUGO | S_IWUSR | S_IWGRP), NULL,
+				   goodix_ts_fod_test_store);
+
 /* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
 static struct xiaomi_touch_interface xiaomi_touch_interfaces;
 /*
@@ -2727,8 +2850,9 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		container_of(work, struct goodix_ts_core, gesture_work);
 
 	ts_info("aod is 0x%x", core_data->aod_status);
+	ts_info("fod is 0x%x", core_data->fod_status);
 	ts_info("enable is 0x%x", core_data->gesture_type);
-	if (core_data->aod_status)
+	if (core_data->aod_status || core_data->fod_status)
 		core_data->gesture_type |= GESTURE_SINGLE_TAP;
 	else
 		core_data->gesture_type &= ~GESTURE_SINGLE_TAP;
@@ -2883,6 +3007,16 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 		return 0;
 	}
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
+
+	if (gtp_mode == Touch_Fod_Enable && goodix_core_data &&
+		gtp_value >= 0) {
+		goodix_core_data->fod_status = gtp_value;
+		ts_info("Touch_Fod_Enable value [%d]\n", gtp_value);
+		queue_work(goodix_core_data->gesture_wq,
+				   &goodix_core_data->gesture_work);
+		return 0;
+	}
+
 /* N17 code for HQ-322938 by zhangzhijian5 at 2023/8/28 start */
 	if (gtp_mode >= Touch_Mode_NUM) {
 		ts_err("gtp mode is error:%d", gtp_mode);
@@ -3190,6 +3324,11 @@ static int goodix_ts_probe(struct platform_device *pdev)
 				goto err_class_create;
 			}
 			dev_set_drvdata(core_data->goodix_touch_dev, core_data);
+			if (sysfs_create_file(&core_data->goodix_touch_dev->kobj,
+								  &dev_attr_fod_test.attr)) {
+				ts_err("Failed to create fod_test sysfs group!\n");
+				goto err_class_create;
+			}
 		}
 	}
 
