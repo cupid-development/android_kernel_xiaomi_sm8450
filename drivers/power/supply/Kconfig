@@ -833,6 +833,11 @@ config MI_WIRELESS
 	help
 	  Say Y here to enable mi wireless
 
+config MI_PEN_WIRELESS
+	tristate "mi pen wirless config"
+	help
+	  Say Y here to enable mi wireless
+
 config WIRELESS_REVERSE_CLOSE
         tristate "mi wirless reverse close config"
         depends on MI_WIRELESS
@@ -862,6 +867,21 @@ config  XM_POWER_SUPPLY
 	tristate "Xiaomi power supply config"
 	help
 	  Say Y or M here to enable xiaomi power supply
+
+config MI_DTPT
+	tristate "mi dtpt config"
+        help
+          Say Y here to enable mi dtpt
+
+config MI_CHARGE_PROPERTY
+	tristate "mask charge property config"
+        help
+          Say Y here to mask some properties
+
+config ANTI_BURN_DETECT
+	tristate "anti burn detect config"
+	help
+	  Say Y or M here to enable anti burn detect config
 
 source "drivers/power/supply/qcom/Kconfig"
 
