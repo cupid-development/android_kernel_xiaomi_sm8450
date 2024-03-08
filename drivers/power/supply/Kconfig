@@ -862,30 +862,20 @@ config CHARGER_BQ256XX
 	  charge management and system power path management devices for single
 	  cell Li-ion and Li-polymer batteries.
 
-config MI_ENABLE_DP
-	tristate "enable or disable displayPort config"
-	help
-	  Say Y here to enable create node to support dp function
-
-config REVERSE_33W
-	tristate "enable or disable reverse 33W config"
-	help
-	  Say Y here to enable create node to support reverse_33W of downshift function
-
 config MI_DTPT
 	tristate "mi dtpt config"
         help
           Say Y here to enable mi dtpt
 
+config MI_CHARGE_PROPERTY
+	tristate "mask charge property config"
+        help
+          Say Y here to mask some properties
+
 config  ANTI_BURN_DETECT
 	tristate "anti burn detect config"
 	help
 	  Say Y or M here to enable anti burn detect config
-
-config MI_WLS_REVERSE_CHG_ONLY
-	tristate "mi only reverse wls chg config"
-        help
-          Say Y here to enable mi only reverse wls chg
 
 source "drivers/power/supply/qcom/Kconfig"
 

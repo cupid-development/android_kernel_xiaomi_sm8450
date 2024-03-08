@@ -9,7 +9,6 @@
 #include <linux/kernel.h>
 #include <linux/notifier.h>
 
-
 #if defined(CONFIG_DRM_PANEL)
 static struct drm_panel *active_panel,*active_panel_sec;
 static void *cookie = NULL, *cookie1=NULL;
@@ -19,7 +18,6 @@ static int blank_state = 1, sec_blank_state = 1;
 #define MSG_OWNER_BC			32778
 #define MSG_TYPE_REQ_RESP		1
 #define MSG_TYPE_NOTIFY			2
-
 
 #define BC_SET_NOTIFY_REQ		0x04
 #define BC_DISABLE_NOTIFY_REQ		0x05
@@ -42,8 +40,6 @@ static int blank_state = 1, sec_blank_state = 1;
 #define BC_GENERIC_NOTIFY		0x80
 #define BC_XM_STATUS_GET		0x50
 #define BC_XM_STATUS_SET		0x51
-
-
 
 #define MAX_STR_LEN			128
 #define BC_WAIT_TIME_MS			1000
@@ -97,7 +93,6 @@ enum ship_mode_type {
 	SHIP_MODE_PMIC,
 	SHIP_MODE_PACK_SIDE,
 };
-
 
 enum battery_property_id {
 	BATT_STATUS,
@@ -154,12 +149,10 @@ enum wireless_property_id {
 	WLS_VOLT_MAX,
 	WLS_CURR_NOW,
 	WLS_CURR_MAX,
-#ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
 	WLS_TYPE,
-#endif
 	WLS_BOOST_EN,
-#ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
 	WLS_HBOOST_VMAX,
+#ifndef CONFIG_MI_CHARGE_PROPERTY
 	WLS_INPUT_CURR_LIMIT,
 	WLS_ADAP_TYPE,
 	WLS_CONN_TEMP,
@@ -172,10 +165,11 @@ enum xm_property_id {
 	XM_PROP_VERIFY_DIGEST,
 	XM_PROP_CONNECTOR_TEMP,
 	XM_PROP_AUTHENTIC,
+	XM_PROP_BATTERY_ADAPT_POWER_MATCH,
 	XM_PROP_CHIP_OK,
 	XM_PROP_VBUS_DISABLE,
 	XM_PROP_REAL_TYPE,
-
+	XM_PROP_THERMAL_BOARD_TEMP,
 	XM_PROP_VERIFY_PROCESS,
 	XM_PROP_VDM_CMD_CHARGER_VERSION,
 	XM_PROP_VDM_CMD_CHARGER_VOLTAGE,
@@ -191,7 +185,6 @@ enum xm_property_id {
 	XM_PROP_PD_VERIFED,
 	XM_PROP_PDO2,
 	XM_PROP_UVDM_STATE,
-
 	XM_PROP_BQ2597X_CHIP_OK,
 	XM_PROP_BQ2597X_SLAVE_CHIP_OK,
 	XM_PROP_BQ2597X_BUS_CURRENT,
@@ -218,7 +211,6 @@ enum xm_property_id {
 	XM_PROP_DIE_TEMPERATURE,
 	XM_PROP_SLAVE_DIE_TEMPERATURE,
 	XM_PROP_FG_RAW_SOC,
-
 	XM_PROP_WLS_START,
 	XM_PROP_TX_MACL,
 	XM_PROP_TX_MACH,
@@ -251,7 +243,6 @@ enum xm_property_id {
 	XM_PROP_WLS_TX_SPEED,
 	XM_PROP_WLS_FC_FLAG,
 	XM_PROP_WLS_END,
-
 	XM_PROP_SHUTDOWN_DELAY,
 	XM_PROP_FAKE_TEMP,
 	XM_PROP_THERMAL_REMOVE,
@@ -260,13 +251,17 @@ enum xm_property_id {
 	XM_PROP_THERMAL_TEMP,
 	XM_PROP_FB_BLANK_STATE,
 	XM_PROP_SMART_BATT,
+	XM_PROP_SMART_CHG,
 	XM_PROP_SHIPMODE_COUNT_RESET,
 	XM_PROP_SPORT_MODE,
 	XM_PROP_BATT_CONNT_ONLINE,
 	XM_PROP_FAKE_CYCLE,
 	XM_PROP_FAKE_SOH,
 	XM_PROP_DELTAFV,
-
+	XM_PROP_OTG_UI_SUPPORT,
+	XM_PROP_CID_STATUS,
+	XM_PROP_CC_TOGGLE,
+	XM_PROP_HIFI_CONNECT,
 	XM_PROP_NVTFG_MONITOR_ISC,
 	XM_PROP_NVTFG_MONITOR_SOA,
 	XM_PROP_OVER_PEAK_FLAG,
@@ -290,7 +285,6 @@ enum xm_property_id {
 	XM_PROP_SET_LEARNING_POWER_B,
 	XM_PROP_GET_LEARNING_POWER_B,
 	XM_PROP_GET_LEARNING_POWER_DEV_B,
-
 	XM_PROP_FG1_QMAX,
 	XM_PROP_FG1_RM,
 	XM_PROP_FG1_FCC,
@@ -310,7 +304,6 @@ enum xm_property_id {
 	XM_PROP_FG1_AI,
 	XM_PROP_FG1_CELL1_VOL,
 	XM_PROP_FG1_CELL2_VOL,
-
 	XM_PROP_SLAVE_CHIP_OK,
 	XM_PROP_SLAVE_AUTHENTIC,
 	XM_PROP_FG1_VOL,
@@ -343,7 +336,6 @@ enum xm_property_id {
 	XM_PROP_FG2_GaugingStatus,
 	XM_PROP_FG2_FullChargeFlag,
 	XM_PROP_FG2_RSOC,
-
 	XM_PROP_FG2_OVER_PEAK_FLAG,
 	XM_PROP_FG2_CURRENT_DEVIATION,
 	XM_PROP_FG2_POWER_DEVIATION,
@@ -365,9 +357,7 @@ enum xm_property_id {
 	XM_PROP_FG2_SET_LEARNING_POWER_B,
 	XM_PROP_FG2_GET_LEARNING_POWER_B,
 	XM_PROP_FG2_GET_LEARNING_POWER_DEV_B,
-
 	XM_PROP_FG_VENDOR_ID,
-
 	XM_PROP_FG_VOLTAGE_MAX,
 	XM_PROP_FG_Charge_Current_MAX,
 	XM_PROP_FG_Discharge_Current_MAX,
@@ -382,20 +372,10 @@ enum xm_property_id {
 	XM_PROP_FG1_DF_CHECK,
 	XM_PROP_FG2_SEAL_STATE,
 	XM_PROP_FG2_DF_CHECK,
-
 #if defined(CONFIG_BQ_CLOUD_AUTHENTICATION)
 	XM_PROP_SERVER_SN,
 	XM_PROP_SERVER_RESULT,
 	XM_PROP_ADSP_RESULT,
-#endif
-#if defined(CONFIG_MI_ENABLE_DP)
-	XM_PROP_HAS_DP,
-#endif
-#if defined(CONFIG_REVERSE_33W)
-	XM_PROP_DOWNSHIFT,
-	XM_PROP_SNK_PROTOCOL,
-	XM_PROP_SCREEN_UNLOCK,
-	XM_PROP_REVERSE_THERMAL,
 #endif
 	XM_PROP_LAST_NODE,
 	XM_PROP_MAX,
@@ -469,7 +449,7 @@ struct xm_set_wls_bin_req_msg {
   u8 serial_number;
   u8 fw_area;
   u8 wls_fw_bin[MAX_STR_LEN];
-};  
+};
 
 struct wireless_fw_check_req {
 	struct pmic_glink_hdr	hdr;
@@ -517,7 +497,6 @@ struct xm_verify_digest_resp_msg {
 	struct pmic_glink_hdr	hdr;
 	u32			property_id;
 	u8			digest[BATTERY_DIGEST_LEN];
-
 	bool		slave_fg;
 };
 
@@ -555,7 +534,6 @@ struct battery_chg_dev {
 	struct psy_state		psy_list[PSY_TYPE_MAX];
 	struct dentry			*debugfs_dir;
 	void				*notifier_cookie;
-
 	struct extcon_dev		*extcon;
 	u32				*thermal_levels;
 	const char			*wls_fw_name;
@@ -597,33 +575,24 @@ struct battery_chg_dev {
 #endif
 	struct delayed_work		panel_notify_register_work;
 	struct delayed_work		panel_sec_notify_register_work;
-
 	bool				initialized;
 	u8				*digest;
 	u32				*ss_auth_data;
 	char				wls_debug_data[CHG_DEBUG_DATA_LEN];
-
 	bool				shutdown_delay_en;
 	bool				support_2s_charging;
 	bool				report_power_absent;
 	bool				report_connector_temp;
 	bool				support_dual_panel;
-
 	bool				slave_fg_verify_flag;
-
-
 	bool				support_soc_update;
-
-
+	bool				support_screen_update;
 	bool				battery_auth;
 	bool				slave_battery_auth;
 	int				mtbf_current;
 	bool				notify_en;
-
-
 	struct work_struct pen_notifier_work;
-
-
 	struct work_struct current_battery_level_notifier_work;
-
+    int thermal_board_temp;
+	struct notifier_block chg_nb;
 };
