@@ -812,17 +812,6 @@ config RN5T618_POWER
 	  This driver can also be built as a module. If so, the module will be
 	  called rn5t618_power.
 
-config CHARGER_BQ256XX
-	tristate "TI BQ256XX battery charger driver"
-	depends on I2C
-	depends on GPIOLIB || COMPILE_TEST
-	select REGMAP_I2C
-	help
-	  Say Y to enable support for the TI BQ256XX battery chargers. The
-	  BQ256XX family of devices are highly-integrated, switch-mode battery
-	  charge management and system power path management devices for single
-	  cell Li-ion and Li-polymer batteries.
-
 config BQ_FG_2S
 	tristate "2s battery fuel gauge support"
 	help
@@ -833,11 +822,10 @@ config MI_WIRELESS
 	help
 	  Say Y here to enable mi wireless
 
-config WIRELESS_REVERSE_CLOSE
-        tristate "mi wirless reverse close config"
-        depends on MI_WIRELESS
-        help
-          Say Y here to disable mi wireless reverse function
+config MI_PEN_WIRELESS
+	tristate "mi pen wirless config"
+	help
+	  Say Y here to enable mi wireless
 
 config BQ_FUEL_GAUGE
 	tristate "BQ fuel gauge config"
@@ -862,6 +850,42 @@ config  XM_POWER_SUPPLY
 	tristate "Xiaomi power supply config"
 	help
 	  Say Y or M here to enable xiaomi power supply
+
+config CHARGER_BQ256XX
+	tristate "TI BQ256XX battery charger driver"
+	depends on I2C
+	depends on GPIOLIB || COMPILE_TEST
+	select REGMAP_I2C
+	help
+	  Say Y to enable support for the TI BQ256XX battery chargers. The
+	  BQ256XX family of devices are highly-integrated, switch-mode battery
+	  charge management and system power path management devices for single
+	  cell Li-ion and Li-polymer batteries.
+
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
+
+config REVERSE_33W
+	tristate "enable or disable reverse 33W config"
+	help
+	  Say Y here to enable create node to support reverse_33W of downshift function
+
+config MI_DTPT
+	tristate "mi dtpt config"
+        help
+          Say Y here to enable mi dtpt
+
+config  ANTI_BURN_DETECT
+	tristate "anti burn detect config"
+	help
+	  Say Y or M here to enable anti burn detect config
+
+config MI_WLS_REVERSE_CHG_ONLY
+	tristate "mi only reverse wls chg config"
+        help
+          Say Y here to enable mi only reverse wls chg
 
 source "drivers/power/supply/qcom/Kconfig"
 
