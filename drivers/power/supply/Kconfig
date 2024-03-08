@@ -832,13 +832,6 @@ config MI_WIRELESS
 	tristate "mi wirless config"
 	help
 	  Say Y here to enable mi wireless
-
-config WIRELESS_REVERSE_CLOSE
-        tristate "mi wirless reverse close config"
-        depends on MI_WIRELESS
-        help
-          Say Y here to disable mi wireless reverse function
-
 config BQ_FUEL_GAUGE
 	tristate "BQ fuel gauge config"
 	help
