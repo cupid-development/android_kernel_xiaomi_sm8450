@@ -38,6 +38,7 @@ static int blank_state = 1, sec_blank_state = 1;
 ATOMIC_NOTIFIER_HEAD(pen_charge_state_notifier);
 ATOMIC_NOTIFIER_HEAD(current_battery_level_notifier);
 
+#ifndef CONFIG_MI_CHARGER_M81
 SRCU_NOTIFIER_HEAD(charger_notifier);
 EXPORT_SYMBOL_GPL(charger_notifier);
 
@@ -58,6 +59,7 @@ int charger_notifier_call_cnain(unsigned long event, int val)
 	return srcu_notifier_call_chain(&charger_notifier, event, &val);
 }
 EXPORT_SYMBOL_GPL(charger_notifier_call_cnain);
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 static const int battery_prop_map[BATT_PROP_MAX] = {
 	[BATT_STATUS]		= POWER_SUPPLY_PROP_STATUS,
@@ -2612,6 +2614,7 @@ static void qti_battery_register_panel_sec_notifier_work(struct work_struct *wor
 }
 #endif
 
+#ifndef CONFIG_MI_CHARGER_M81
 static int charger_notifier_event(struct notifier_block *notifier,
 			unsigned long chg_event, void *val)
 {
@@ -2640,6 +2643,7 @@ static int charger_notifier_event(struct notifier_block *notifier,
 	}
 	return NOTIFY_DONE;
 }
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 extern void generate_xm_charge_uvent(struct work_struct *work);
 extern void xm_charger_debug_info_print_work(struct work_struct *work);
@@ -2845,8 +2849,10 @@ static int battery_chg_probe(struct platform_device *pdev)
 	schedule_delayed_work(&bcdev->batt_update_work, 0);
 #endif
 
+#ifndef CONFIG_MI_CHARGER_M81
 	bcdev->chg_nb.notifier_call = charger_notifier_event;
 	charger_reg_notifier(&bcdev->chg_nb);
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 	return 0;
 error:

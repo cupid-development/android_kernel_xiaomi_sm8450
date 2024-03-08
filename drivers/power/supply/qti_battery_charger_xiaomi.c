@@ -735,6 +735,7 @@ static ssize_t authentic_show(struct class *c,
 }
 static CLASS_ATTR_RW(authentic);
 
+#ifndef CONFIG_MI_CHARGER_M81
 static ssize_t bap_match_store(struct class *c,
 		struct class_attribute *attr, const char *buf, size_t count)
 {
@@ -769,6 +770,7 @@ static ssize_t bap_match_show(struct class *c,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_BATTERY_ADAPT_POWER_MATCH]);
 }
 static CLASS_ATTR_RW(bap_match);
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 static ssize_t chip_ok_show(struct class *c,
 					struct class_attribute *attr, char *buf)
@@ -1371,6 +1373,7 @@ static ssize_t smart_batt_show(struct class *c,
 }
 static CLASS_ATTR_RW(smart_batt);
 
+#ifndef CONFIG_MI_CHARGER_M81
 static ssize_t smart_chg_store(struct class *c,
 					struct class_attribute *attr,
 					const char *buf, size_t count)
@@ -1406,6 +1409,7 @@ static ssize_t smart_chg_show(struct class *c,
 	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_SMART_CHG]);
 }
 static CLASS_ATTR_RW(smart_chg);
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 #define BSWAP_32(x) \
 	(u32)((((u32)(x) & 0xff000000) >> 24) | \
@@ -2429,6 +2433,7 @@ static ssize_t deltafv_show(struct class *c,
 }
 static CLASS_ATTR_RO(deltafv);
 
+#ifndef CONFIG_MI_CHARGER_M81
 static ssize_t otg_ui_support_show(struct class *c,
                                         struct class_attribute *attr, char *buf)
 {
@@ -2532,6 +2537,25 @@ static ssize_t hifi_connect_show(struct class *c,
 	return scnprintf(buf, PAGE_SIZE, "%u", pst->prop[XM_PROP_HIFI_CONNECT]);
 }
 static CLASS_ATTR_RW(hifi_connect);
+#endif /* CONFIG_MI_CHARGER_M81 */
+
+#ifdef CONFIG_MI_CHARGER_M81
+static ssize_t cycle_count_diff_show(struct class *c,
+                                        struct class_attribute *attr, char *buf)
+{
+        struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+                                                battery_class);
+        struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+        int rc;
+
+        rc = read_property_id(bcdev, pst, XM_PROP_CYCLE_COUNT_DIFF);
+        if (rc < 0)
+                return rc;
+
+        return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_CYCLE_COUNT_DIFF]);
+}
+static CLASS_ATTR_RO(cycle_count_diff);
+#endif /* CONFIG_MI_CHARGER_M81 */
 
 static ssize_t fg1_fastcharge_show(struct class *c,
 					struct class_attribute *attr, char *buf)
@@ -4595,6 +4619,43 @@ static ssize_t sport_mode_show(struct class *c,
 }
 static CLASS_ATTR_RW(sport_mode);
 
+#ifdef CONFIG_MI_CHARGER_M81
+static ssize_t atest_store(struct class *c,
+					struct class_attribute *attr,
+					const char *buf, size_t count)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	int rc;
+	int val;
+
+	if (kstrtoint(buf, 10, &val))
+		return -EINVAL;
+
+	rc = write_property_id(bcdev, &bcdev->psy_list[PSY_TYPE_XM],
+				XM_PROP_ATEST, val);
+	if (rc < 0)
+		return rc;
+
+	return count;
+}
+static ssize_t atest_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+
+	rc = read_property_id(bcdev, pst, XM_PROP_ATEST);
+	if (rc < 0)
+		return rc;
+
+	return scnprintf(buf, PAGE_SIZE, "%u\n", pst->prop[XM_PROP_ATEST]);
+}
+static CLASS_ATTR_RW(atest);
+#endif /* #ifndef CONFIG_MI_CHARGER_M81 */
+
 static ssize_t last_node_show(struct class *c,
 			struct class_attribute *attr, char *buf)
 {
@@ -4610,6 +4671,7 @@ static ssize_t last_node_show(struct class *c,
 }
 static CLASS_ATTR_RO(last_node);
 
+#ifndef CONFIG_MI_CHARGER_M81
 static ssize_t thermal_board_temp_store(struct class *c,
 					struct class_attribute *attr,
 					const char *buf, size_t count)
@@ -4646,6 +4708,7 @@ static ssize_t thermal_board_temp_show(struct class *c,
     return scnprintf(buf, PAGE_SIZE, "%u", bcdev->thermal_board_temp);
 }
 static CLASS_ATTR_RW(thermal_board_temp);
+#endif /* !CONFIG_MI_CHARGER_M81 */
 
 static struct attribute *xiaomi_battery_class_attrs[] = {
 #ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
@@ -4656,7 +4719,9 @@ static struct attribute *xiaomi_battery_class_attrs[] = {
 	&class_attr_verify_digest.attr,
 	&class_attr_connector_temp.attr,
 	&class_attr_authentic.attr,
+#ifndef CONFIG_MI_CHARGER_M81
 	&class_attr_bap_match.attr,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	&class_attr_chip_ok.attr,
 	&class_attr_vbus_disable.attr,
 	&class_attr_verify_process.attr,
@@ -4691,16 +4756,23 @@ static struct attribute *xiaomi_battery_class_attrs[] = {
 	&class_attr_fake_cycle.attr,
 	&class_attr_fake_soh.attr,
 	&class_attr_deltafv.attr,
+#ifndef CONFIG_MI_CHARGER_M81
 	&class_attr_otg_ui_support.attr,
 	&class_attr_cid_status.attr,
 	&class_attr_cc_toggle.attr,
 	&class_attr_hifi_connect.attr,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	&class_attr_fake_temp.attr,
+#ifdef CONFIG_MI_CHARGER_M81
+	&class_attr_cycle_count_diff.attr,
+#endif /* CONFIG_MI_CHARGER_M81 */
 	&class_attr_thermal_remove.attr,
 	&class_attr_typec_mode.attr,
 	&class_attr_mtbf_current.attr,
 	&class_attr_smart_batt.attr,
+#ifndef CONFIG_MI_CHARGER_M81
 	&class_attr_smart_chg.attr,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	&class_attr_shipmode_count_reset.attr,
 	&class_attr_sport_mode.attr,
 	&class_attr_apdo_max.attr,
@@ -4861,7 +4933,12 @@ static struct attribute *xiaomi_battery_class_attrs[] = {
 	&class_attr_server_result.attr,
 	&class_attr_adsp_result.attr,
 #endif
+#ifndef CONFIG_MI_CHARGER_M81
 	&class_attr_thermal_board_temp.attr,
+#endif /* !CONFIG_MI_CHARGER_M81 */
+#ifdef CONFIG_MI_CHARGER_M81
+	&class_attr_atest.attr,
+#endif /* CONFIG_MI_CHARGER_M81 */
 	&class_attr_last_node.attr,
 	NULL,
 };

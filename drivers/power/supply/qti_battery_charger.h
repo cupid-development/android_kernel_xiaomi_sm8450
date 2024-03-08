@@ -158,11 +158,15 @@ enum xm_property_id {
 	XM_PROP_VERIFY_DIGEST,
 	XM_PROP_CONNECTOR_TEMP,
 	XM_PROP_AUTHENTIC,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_BATTERY_ADAPT_POWER_MATCH,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	XM_PROP_CHIP_OK,
 	XM_PROP_VBUS_DISABLE,
 	XM_PROP_REAL_TYPE,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_THERMAL_BOARD_TEMP,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	/*used for pd authentic*/
 	XM_PROP_VERIFY_PROCESS,
 	XM_PROP_VDM_CMD_CHARGER_VERSION,
@@ -207,7 +211,7 @@ enum xm_property_id {
 	XM_PROP_SLAVE_DIE_TEMPERATURE,
 	XM_PROP_FG_RAW_SOC,
 	/* wireless charge infor */
-	XM_PROP_WLS_START,
+	XM_PROP_WLS_START = 50,
 	XM_PROP_TX_MACL,
 	XM_PROP_TX_MACH,
 	XM_PROP_PEN_MACL,
@@ -238,7 +242,9 @@ enum xm_property_id {
 	XM_PROP_WLS_CAR_ADAPTER,
 	XM_PROP_WLS_TX_SPEED,
 	XM_PROP_WLS_FC_FLAG,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_WLS_END,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	/**********************/
 	XM_PROP_SHUTDOWN_DELAY,
 	XM_PROP_FAKE_TEMP,
@@ -248,17 +254,24 @@ enum xm_property_id {
 	XM_PROP_THERMAL_TEMP,
 	XM_PROP_FB_BLANK_STATE,
 	XM_PROP_SMART_BATT,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_SMART_CHG,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	XM_PROP_SHIPMODE_COUNT_RESET,
 	XM_PROP_SPORT_MODE,
 	XM_PROP_BATT_CONNT_ONLINE,
 	XM_PROP_FAKE_CYCLE,
 	XM_PROP_FAKE_SOH,
 	XM_PROP_DELTAFV,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_OTG_UI_SUPPORT,
 	XM_PROP_CID_STATUS,
 	XM_PROP_CC_TOGGLE,
 	XM_PROP_HIFI_CONNECT,
+#endif /* !CONFIG_MI_CHARGER_M81 */
+#ifdef CONFIG_MI_CHARGER_M81
+	XM_PROP_CYCLE_COUNT_DIFF,
+#endif /* CONFIG_MI_CHARGER_M81 */
 	/*********nvt fuelgauge feature*********/
 	XM_PROP_NVTFG_MONITOR_ISC,
 	XM_PROP_NVTFG_MONITOR_SOA,
@@ -337,6 +350,7 @@ enum xm_property_id {
 	XM_PROP_FG2_GaugingStatus,
 	XM_PROP_FG2_FullChargeFlag,
 	XM_PROP_FG2_RSOC,
+#ifndef CONFIG_MI_CHARGER_M81
 	XM_PROP_FG2_OVER_PEAK_FLAG,
 	XM_PROP_FG2_CURRENT_DEVIATION,
 	XM_PROP_FG2_POWER_DEVIATION,
@@ -358,6 +372,7 @@ enum xm_property_id {
 	XM_PROP_FG2_SET_LEARNING_POWER_B,
 	XM_PROP_FG2_GET_LEARNING_POWER_B,
 	XM_PROP_FG2_GET_LEARNING_POWER_DEV_B,
+#endif /* !CONFIG_MI_CHARGER_M81 */
 	XM_PROP_FG_VENDOR_ID,
 	/*begin dual fuel high temperature intercept feature */
 	XM_PROP_FG_VOLTAGE_MAX,
@@ -380,6 +395,9 @@ enum xm_property_id {
 	XM_PROP_SERVER_RESULT,
 	XM_PROP_ADSP_RESULT,
 #endif
+#ifdef CONFIG_MI_CHARGER_M81
+	XM_PROP_ATEST,
+#endif /* CONFIG_MI_CHARGER_M81 */
 	XM_PROP_LAST_NODE,
 	XM_PROP_MAX,
 };
@@ -606,6 +624,8 @@ struct battery_chg_dev {
 	bool				error_prop;
 	struct work_struct pen_notifier_work;
 	struct work_struct current_battery_level_notifier_work;
+#ifndef CONFIG_MI_CHARGER_M81
 	int thermal_board_temp;
 	struct notifier_block chg_nb;
+#endif /* !#ifndef CONFIG_MI_CHARGER_M81 */
 };
