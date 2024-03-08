@@ -879,6 +879,12 @@ config MI_WLS_REVERSE_CHG_ONLY
         help
           Say Y here to enable mi only reverse wls chg
 
+config MI_CHARGER_M81
+	tristate "match m81 charger properties"
+	help
+	  Say Y here to enable xiaomi properties similar to
+	  qti_battery_charger_main_m81 module on stock
+
 source "drivers/power/supply/qcom/Kconfig"
 
 endif # POWER_SUPPLY
