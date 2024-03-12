@@ -395,6 +395,9 @@ enum xm_property_id {
 	XM_PROP_SERVER_RESULT,
 	XM_PROP_ADSP_RESULT,
 #endif
+#if defined(CONFIG_MI_ENABLE_DP)
+	XM_PROP_HAS_DP,
+#endif
 #ifdef CONFIG_MI_CHARGER_M81
 	XM_PROP_ATEST,
 #endif /* CONFIG_MI_CHARGER_M81 */
