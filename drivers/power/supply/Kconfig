@@ -869,15 +869,15 @@ config MI_DTPT
         help
           Say Y here to enable mi dtpt
 
-config MI_CHARGE_PROPERTY
-	tristate "mask charge property config"
-        help
-          Say Y here to mask some properties
-
 config ANTI_BURN_DETECT
 	tristate "anti burn detect config"
 	help
 	  Say Y or M here to enable anti burn detect config
+
+config MI_WLS_REVERSE_CHG_ONLY
+	tristate "mi only reverse wls chg config"
+        help
+          Say Y here to enable mi only reverse wls chg
 
 source "drivers/power/supply/qcom/Kconfig"
 
