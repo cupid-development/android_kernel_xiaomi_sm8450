@@ -869,6 +869,11 @@ config MI_ENABLE_DP
 	help
 	  Say Y here to enable create node to support dp function
 
+config REVERSE_33W
+	tristate "enable or disable reverse 33W config"
+	help
+	  Say Y here to enable create node to support reverse_33W of downshift function
+
 config MI_DTPT
 	tristate "mi dtpt config"
         help
