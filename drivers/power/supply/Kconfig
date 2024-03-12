@@ -864,6 +864,11 @@ config BQ_FG_UPDATE
 	help
 	  Say y here to enable Bq fuel gauge
 
+config MI_ENABLE_DP
+	tristate "enable or disable displayPort config"
+	help
+	  Say Y here to enable create node to support dp function
+
 config MI_DTPT
 	tristate "mi dtpt config"
         help
