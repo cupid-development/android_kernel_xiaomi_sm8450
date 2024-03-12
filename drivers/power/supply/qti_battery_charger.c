@@ -393,6 +393,16 @@ int qti_battery_charger_get_prop(const char *name,
 			*val = pst->prop[XM_PROP_CC_ORIENTATION];
 		}
 		break;
+#if defined(CONFIG_MI_ENABLE_DP)
+	case HAS_DP_PS5169:
+		pst = &bcdev->psy_list[PSY_TYPE_XM];
+		rc = read_property_id(bcdev, pst, XM_PROP_HAS_DP);
+		if (!rc) {
+			*val = pst->prop[XM_PROP_HAS_DP];
+
+		}
+		break;
+#endif
 	default:
 		break;
 	}
