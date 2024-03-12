@@ -202,7 +202,7 @@ static int update_wls_fw_version(struct battery_chg_dev *bcdev,
 }
 #endif
 
-#ifndef CONFIG_MI_CHARGE_PROPERTY
+#ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
 static const char *get_wls_type_name(u32 wls_type)
 {
 	if (wls_type >= ARRAY_SIZE(qc_power_supply_wls_type_text))
@@ -343,7 +343,7 @@ static ssize_t quick_charge_type_show(struct class *c,
 }
 static CLASS_ATTR_RO(quick_charge_type);
 
-#ifndef CONFIG_MI_CHARGE_PROPERTY
+#ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
 static ssize_t wireless_type_show(struct class *c,
 				struct class_attribute *attr, char *buf)
 {
@@ -4648,7 +4648,7 @@ static ssize_t thermal_board_temp_show(struct class *c,
 static CLASS_ATTR_RW(thermal_board_temp);
 
 static struct attribute *xiaomi_battery_class_attrs[] = {
-#ifndef CONFIG_MI_CHARGE_PROPERTY
+#ifndef CONFIG_MI_WLS_REVERSE_CHG_ONLY
 	&class_attr_wireless_type.attr,
 #endif
 	&class_attr_real_type.attr,
