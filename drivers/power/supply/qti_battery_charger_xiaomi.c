@@ -2783,6 +2783,22 @@ static ssize_t adsp_result_show(struct class *c,
 static CLASS_ATTR_RO(adsp_result);
 #endif
 
+#if defined(CONFIG_MI_ENABLE_DP)
+static ssize_t has_dp_show(struct class *c,
+					struct class_attribute *attr, char *buf)
+{
+	struct battery_chg_dev *bcdev = container_of(c, struct battery_chg_dev,
+						battery_class);
+	struct psy_state *pst = &bcdev->psy_list[PSY_TYPE_XM];
+	int rc;
+	rc = read_property_id(bcdev, pst, XM_PROP_HAS_DP);
+	if (rc < 0)
+		return rc;
+	return scnprintf(buf, PAGE_SIZE, "%d\n", pst->prop[XM_PROP_HAS_DP]);
+}
+static CLASS_ATTR_RO(has_dp);
+#endif
+
 static ssize_t fg_vendor_show(struct class *c,
 					struct class_attribute *attr, char *buf)
 {
@@ -4932,6 +4948,9 @@ static struct attribute *xiaomi_battery_class_attrs[] = {
 	&class_attr_server_sn.attr,
 	&class_attr_server_result.attr,
 	&class_attr_adsp_result.attr,
+#endif
+#if defined(CONFIG_MI_ENABLE_DP)
+	&class_attr_has_dp.attr,
 #endif
 #ifndef CONFIG_MI_CHARGER_M81
 	&class_attr_thermal_board_temp.attr,
