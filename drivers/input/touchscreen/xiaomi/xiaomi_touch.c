@@ -1463,7 +1463,7 @@ static ssize_t update_rawdata_store(struct device *dev,
 		sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
 			     "update_rawdata");
 
-	pr_info("%s notify buf\n", __func__);
+	//pr_info("%s notify buf\n", __func__);
 
 	return count;
 }
