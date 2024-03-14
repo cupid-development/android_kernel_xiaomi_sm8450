@@ -3597,6 +3597,8 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 	    gtp_value >= 0) {
 		if (goodix_core_data->enable_touch_raw == 0)
 			return 0;
+		if (goodix_core_data->fod_status == 0 && !goodix_core_data->fod_finger)
+			return 0;
 		if (gtp_value != 0) {
 			ts_info("ts fod down");
 			goodix_core_data->fod_finger = true;
