@@ -12,7 +12,7 @@
 
 #define HARDWARE_PROJECT_UNKNOWN    0
 #define HARDWARE_PROJECT_L1         6 // thor
-#define HARDWARE_PROJECT_L1A        HARDWARE_PROJECT_UNKNOWN
+#define HARDWARE_PROJECT_L1A        7 // loki
 #define HARDWARE_PROJECT_L2         1 // zeus
 #define HARDWARE_PROJECT_L2S        8 // unicorn
 #define HARDWARE_PROJECT_L3         2 // cupid
