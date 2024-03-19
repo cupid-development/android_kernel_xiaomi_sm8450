@@ -118,6 +118,11 @@ static int enable_regulator_3V3(struct device *dev)
 	//struct regulator *vreg;
 	mutex_lock(&regulator_ocp_lock);
 	p_3v3_vreg = devm_regulator_get(dev, "l6c_vdd");
+
+	if (IS_ERR(p_3v3_vreg)) {
+		p_3v3_vreg = devm_regulator_get(dev, "l11c_vdd");
+	}
+
 	if (IS_ERR(p_3v3_vreg)) {
 		pr_err("fp %s: no of vreg found\n", __func__);
 		mutex_unlock(&regulator_ocp_lock);

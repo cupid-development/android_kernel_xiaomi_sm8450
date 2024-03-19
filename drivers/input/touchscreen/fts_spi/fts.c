@@ -5556,6 +5556,44 @@ static int fts_init(struct fts_ts_info *info)
 	int error, retry;
 	u8 readData[2];
 
+#ifndef I2C_INTERFACE
+#ifdef SPI4_WIRE
+	error = fts_spi4_mode_set(info);
+	if (error < OK) {
+		logError(1, "%s change spi4 mode error\n", tag);
+		return error;
+	}
+	msleep(1);
+#endif
+#endif
+
+	logError(
+		1,
+		"%s check chip_id to judge there is no fw or no panel\n",
+		tag);
+	logError(1, "%s Reading chip id\n", tag);
+	for (retry = 0; retry < 3; retry++) {
+		msleep(10); /* wait for the GPIO to stabilize */
+		error = fts_writeReadU8UX(FTS_CMD_HW_REG_R,
+					  ADDR_SIZE_HW_REG,
+					  ADDR_DCHIP_ID, readData, 2,
+					  DUMMY_FIFO);
+		logError(1, "%s chip_id0:0x%x,chip_id1:0x%x\n", tag,
+			 readData[0], readData[1]);
+		if ((readData[0] == DCHIP_ID_0) &&
+			((readData[1] == DCHIP_ID_1) || readData[1] == 0x52))
+			break;
+	}
+	if (retry == 3) {
+		logError(1, "%s read chip error,no panel\n", tag);
+		return ERROR_OP_NOT_ALLOW;
+	} else {
+		logError(
+			1,
+			"%s read chip ok, maybe no fw,force update fw\n",
+			tag);
+	}
+
 	error = fts_system_reset();
 #ifdef I2C_INTERFACE
 	if (error < OK && isI2cError(error)) {
@@ -5564,41 +5602,6 @@ static int fts_init(struct fts_ts_info *info)
 #endif
 		logError(1, "%s Cannot reset the device! ERROR %08X\n", tag,
 			 error);
-		logError(
-			1,
-			"%s check chip_id to judge there is no fw or no panel\n",
-			tag);
-#ifdef SPI4_WIRE
-		error = fts_spi4_mode_set(info);
-		if (error < OK) {
-			logError(1, "%s change spi4 mode error\n", tag);
-			return error;
-		}
-		msleep(1);
-#endif
-		logError(1, "%s Reading chip id\n", tag);
-		for (retry = 0; retry < 3; retry++) {
-			msleep(10); /* wait for the GPIO to stabilize */
-			error = fts_writeReadU8UX(FTS_CMD_HW_REG_R,
-						  ADDR_SIZE_HW_REG,
-						  ADDR_DCHIP_ID, readData, 2,
-						  DUMMY_FIFO);
-			logError(1, "%s chip_id0:0x%x,chip_id1:0x%x\n", tag,
-				 readData[0], readData[1]);
-			if ((readData[0] == DCHIP_ID_0) &&
-			    (readData[1] == DCHIP_ID_1))
-				break;
-		}
-		if (retry == 3) {
-			logError(1, "%s read chip error,no panel\n", tag);
-			return ERROR_OP_NOT_ALLOW;
-		} else {
-			logError(
-				1,
-				"%s read chip ok, maybe no fw,force update fw\n",
-				tag);
-			return OK;
-		}
 	} else {
 		if (error == (ERROR_TIMEOUT | ERROR_SYSTEM_RESET_FAIL)) {
 			logError(1, "%s Setting default Sys INFO! \n", tag);
@@ -9920,6 +9923,12 @@ static int fts_remove(struct spi_device *client)
 static struct of_device_id fts_of_match_table[] = {
 	{
 		.compatible = "st,spi",
+	},
+	{
+		.compatible = "st,spi-pri",
+	},
+	{
+		.compatible = "st,spi-sec",
 	},
 	{},
 };
