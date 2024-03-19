@@ -6879,7 +6879,8 @@ static int fts_set_cur_value(int mode, int value)
 	}
 
 	if (mode == THP_FOD_DOWNUP_CTL && fts_info && value >= 0) {
-		if (fts_info->enable_touch_raw)
+		if (fts_info->enable_touch_raw &&
+		    (fts_fingerprint_is_enable() || fts_info->fod_pressed))
 			fts_set_fod_downup(fts_info, value);
 		return 0;
 	}
