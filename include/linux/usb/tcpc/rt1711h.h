@@ -190,11 +190,10 @@
 /* timeout = (tout+1) * 12.5ms */
 #define RT1711H_REG_I2CRST_SET(en, tout) ((en << 7) | (tout & 0x0f))
 
-#if ENABLE_RT1711_DBG
 #define RT1711_INFO(format, args...)                                           \
-	pd_dbg_info("%s() line-%d: " format, __func__, __LINE__, ##args)
-#else
-#define RT1711_INFO(foramt, args...)
-#endif
+	{                                                                          \
+		if (ENABLE_RT1711_DBG)                                                \
+			pd_dbg_info("%s() line-%d: " format, __func__, __LINE__, ##args);  \
+	}
 
 #endif /* #ifndef __LINUX_RT1711H_H */
