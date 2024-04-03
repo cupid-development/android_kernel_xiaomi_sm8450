@@ -895,6 +895,13 @@ config MI_CHARGER_M81
 	  Say Y here to enable xiaomi properties similar to
 	  qti_battery_charger_main_m81 module on stock
 
+config XM_POWER_SUPPLY
+	tristate "Xiaomi power supply config"
+	help
+	  Say Y or M here to enable xiaomi power supply
+
 source "drivers/power/supply/qcom/Kconfig"
+
+source "drivers/power/supply/xiaomi/Kconfig"
 
 endif # POWER_SUPPLY
