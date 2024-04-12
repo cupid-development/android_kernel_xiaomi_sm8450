@@ -2316,6 +2316,8 @@ static int haptics_init_custom_effect(struct haptics_chip *chip)
 	chip->custom_effect->vmax_mv = 9100;
 #elif defined(CONFIG_TARGET_PRODUCT_MARBLE)
 	chip->custom_effect->vmax_mv = 9100;
+#elif defined(CONFIG_TARGET_PRODUCT_GARNET)
+	chip->custom_effect->vmax_mv = 9200;
 #elif defined(CONFIG_TARGET_PRODUCT_YUDI)
 	chip->custom_effect->vmax_mv = 5000;
 #else
