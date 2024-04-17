@@ -43,10 +43,12 @@
 #define ENABLE_SYS_REFLASH true
 #define SYSFS_DIR_NAME "reflash"
 #define CUSTOM_DIR_NAME "custom"
-#define FW_IMAGE_NAME "s3907_xiaomi_m9_spi.img"
-#define FW_IMAGE_NAME_MANUAL "s3907_xiaomi_m9_spi.img"
-#define FW_SECOND_IMAGE_NAME "s3907_xiaomi_m9_second_spi.img"
-#define FW_SECOND_IMAGE_NAME_MANUAL "s3907_xiaomi_m9_second_spi.img"
+#define FW_IMAGE_NAME "s3907_xiaomi_l9s_spi.img"
+#define FW_IMAGE_NAME_MANUAL "s3907_xiaomi_l9s_spi.img"
+#define FW_SECOND_IMAGE_NAME "s3907_xiaomi_l9s_second_spi.img"
+#define FW_SECOND_IMAGE_NAME_MANUAL "s3907_xiaomi_l9s_second_spi.img"
+#define FW_THIRD_IMAGE_NAME "s3907_xiaomi_l9s_thrid_spi.img"
+#define FW_THIRD_IMAGE_NAME_MANUAL "s3907_xiaomi_l9s_thrid_spi.img"
 #define BOOT_CONFIG_ID "BOOT_CONFIG"
 #define APP_CODE_ID "APP_CODE"
 #define PROD_TEST_ID "APP_PROD_TEST"
@@ -68,8 +70,9 @@
 #define DISP_CFG_UPDATE (1 << 3)
 #define BOOT_CFG_UPDATE (1 << 4)
 #define BOOT_CFG_LOCKDOWN (1 << 5)
-#define M9_TOUCH_PANEL_MAKER 0x53
-#define M9_SECOND_TOUCH_PANEL_MAKER 0x46
+#define L9_TOUCH_PANEL_MAKER 0x53
+#define L9_SECOND_TOUCH_PANEL_MAKER 0x46
+#define L9_THIRD_TOUCH_PANEL_MAKER 0x73
 
 #define reflash_show_data()                                                    \
 	{                                                                      \
@@ -963,18 +966,34 @@ static int reflash_get_fw_image(void)
 
 	if (reflash_hcd->image == NULL) {
 		if (reflash_hcd->reflash_by_manual == false) {
-			if (tcm_hcd->lockdown_info[0] == M9_TOUCH_PANEL_MAKER) {
-				retval = request_firmware(
-					&reflash_hcd->fw_entry, FW_IMAGE_NAME,
-					tcm_hcd->pdev->dev.parent);
-				if (retval < 0) {
-					LOGE(tcm_hcd->pdev->dev.parent,
-					     "Failed to request %s, retval=%d\n",
-					     FW_IMAGE_NAME, retval);
-					goto exit;
+			if (tcm_hcd->lockdown_info[0] == L9_TOUCH_PANEL_MAKER) {
+				if (tcm_hcd->lockdown_info[7] ==
+				    L9_THIRD_TOUCH_PANEL_MAKER) {
+					retval = request_firmware(
+						&reflash_hcd->fw_entry,
+						FW_THIRD_IMAGE_NAME,
+						tcm_hcd->pdev->dev.parent);
+					if (retval < 0) {
+						LOGE(tcm_hcd->pdev->dev.parent,
+						     "Failed to request %s, retval=%d\n",
+						     FW_THIRD_IMAGE_NAME,
+						     retval);
+						goto exit;
+					}
+				} else {
+					retval = request_firmware(
+						&reflash_hcd->fw_entry,
+						FW_IMAGE_NAME,
+						tcm_hcd->pdev->dev.parent);
+					if (retval < 0) {
+						LOGE(tcm_hcd->pdev->dev.parent,
+						     "Failed to request %s, retval=%d\n",
+						     FW_IMAGE_NAME, retval);
+						goto exit;
+					}
 				}
 			} else if (tcm_hcd->lockdown_info[0] ==
-				   M9_SECOND_TOUCH_PANEL_MAKER) {
+				   L9_SECOND_TOUCH_PANEL_MAKER) {
 				retval = request_firmware(
 					&reflash_hcd->fw_entry,
 					FW_SECOND_IMAGE_NAME,
@@ -987,19 +1006,35 @@ static int reflash_get_fw_image(void)
 				}
 			}
 		} else {
-			if (tcm_hcd->lockdown_info[0] == M9_TOUCH_PANEL_MAKER) {
-				retval = request_firmware(
-					&reflash_hcd->fw_entry,
-					FW_IMAGE_NAME_MANUAL,
-					tcm_hcd->pdev->dev.parent);
-				if (retval < 0) {
-					LOGE(tcm_hcd->pdev->dev.parent,
-					     "Failed to request %s, retval=%d\n",
-					     FW_IMAGE_NAME_MANUAL, retval);
-					goto exit;
+			if (tcm_hcd->lockdown_info[0] == L9_TOUCH_PANEL_MAKER) {
+				if (tcm_hcd->lockdown_info[7] ==
+				    L9_THIRD_TOUCH_PANEL_MAKER) {
+					retval = request_firmware(
+						&reflash_hcd->fw_entry,
+						FW_THIRD_IMAGE_NAME_MANUAL,
+						tcm_hcd->pdev->dev.parent);
+					if (retval < 0) {
+						LOGE(tcm_hcd->pdev->dev.parent,
+						     "Failed to request %s, retval=%d\n",
+						     FW_THIRD_IMAGE_NAME_MANUAL,
+						     retval);
+						goto exit;
+					}
+				} else {
+					retval = request_firmware(
+						&reflash_hcd->fw_entry,
+						FW_IMAGE_NAME_MANUAL,
+						tcm_hcd->pdev->dev.parent);
+					if (retval < 0) {
+						LOGE(tcm_hcd->pdev->dev.parent,
+						     "Failed to request %s, retval=%d\n",
+						     FW_IMAGE_NAME_MANUAL,
+						     retval);
+						goto exit;
+					}
 				}
 			} else if (tcm_hcd->lockdown_info[0] ==
-				   M9_SECOND_TOUCH_PANEL_MAKER) {
+				   L9_SECOND_TOUCH_PANEL_MAKER) {
 				retval = request_firmware(
 					&reflash_hcd->fw_entry,
 					FW_SECOND_IMAGE_NAME_MANUAL,
