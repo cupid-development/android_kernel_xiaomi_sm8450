@@ -185,7 +185,6 @@ void touch_fod_test(int value)
 		input_report_key(touch_hcd->input_dev, BTN_INFO, 1);
 		input_sync(touch_hcd->input_dev);
 		update_fod_press_status(1);
-		mi_disp_set_fod_queue_work(1, true);
 		input_mt_slot(touch_hcd->input_dev, 0);
 		input_mt_report_slot_state(touch_hcd->input_dev, MT_TOOL_FINGER,
 					   1);
@@ -208,7 +207,6 @@ void touch_fod_test(int value)
 		input_report_abs(touch_hcd->input_dev, ABS_MT_TRACKING_ID, -1);
 		input_report_key(touch_hcd->input_dev, BTN_INFO, 0);
 		update_fod_press_status(0);
-		mi_disp_set_fod_queue_work(0, true);
 		input_sync(touch_hcd->input_dev);
 	}
 }
@@ -224,7 +222,6 @@ static void touch_fod_down_event(void)
 		LOGI(tcm_hcd->pdev->dev.parent, "FOD DOWN Dfetected\n");
 		tcm_hcd->fod_display_enabled = true;
 		update_fod_press_status(1);
-		mi_disp_set_fod_queue_work(1, true);
 	}
 }
 
@@ -243,7 +240,6 @@ static void touch_fod_up_event(void)
 	tcm_hcd->fod_display_enabled = false;
 	fod_id = TOUCH_FOD_INVALID_ID;
 	update_fod_press_status(0);
-	mi_disp_set_fod_queue_work(0, true);
 }
 
 int touch_flush_slots(struct syna_tcm_hcd *tcm_hcd)
