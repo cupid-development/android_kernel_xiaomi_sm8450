@@ -6232,34 +6232,6 @@ static int ts_check_panel(struct device_node *np)
 	return PTR_ERR(panel);
 }
 */
-static int syna_pinctrl_init(struct syna_tcm_hcd *tcm_hcd,
-			     struct spi_device *spi)
-{
-	int retval = 0;
-	/* Get pinctrl if target uses pinctrl */
-	tcm_hcd->ts_pinctrl = devm_pinctrl_get(&spi->dev);
-	if (IS_ERR_OR_NULL(tcm_hcd->ts_pinctrl)) {
-		retval = PTR_ERR(tcm_hcd->ts_pinctrl);
-		LOGE(tcm_hcd->pdev->dev.parent,
-		     "Target does not use pinctrll=%d\n", retval);
-		goto err_pinctrl_get;
-	}
-	tcm_hcd->pinctrl_state_spi =
-		pinctrl_lookup_state(tcm_hcd->ts_pinctrl, PINCTRL_STATE_SPI);
-	if (IS_ERR_OR_NULL(tcm_hcd->pinctrl_state_spi)) {
-		retval = PTR_ERR(tcm_hcd->pinctrl_state_spi);
-		LOGE(tcm_hcd->pdev->dev.parent,
-		     "Can not lookup %s pinstate %d\n", PINCTRL_STATE_SPI,
-		     retval);
-		goto err_pinctrl_lookup;
-	}
-	return 0;
-err_pinctrl_lookup:
-	devm_pinctrl_put(tcm_hcd->ts_pinctrl);
-err_pinctrl_get:
-	tcm_hcd->ts_pinctrl = NULL;
-	return retval;
-}
 
 static int syna_tcm_probe(struct platform_device *pdev)
 {
@@ -6414,19 +6386,6 @@ static int syna_tcm_probe(struct platform_device *pdev)
 		LOGE(tcm_hcd->pdev->dev.parent,
 		     "Failed to enable regulators, retval=%d\n", retval);
 		goto err_enable_regulator;
-	}
-	retval = syna_pinctrl_init(tcm_hcd, spi);
-	if (!retval && tcm_hcd->ts_pinctrl) {
-		retval = pinctrl_select_state(tcm_hcd->ts_pinctrl,
-					      tcm_hcd->pinctrl_state_spi);
-		if (retval < 0) {
-			LOGE(tcm_hcd->pdev->dev.parent,
-			     "Failed to select %s pinstate %d\n",
-			     PINCTRL_STATE_SPI, retval);
-		}
-	} else {
-		LOGE(tcm_hcd->pdev->dev.parent, "Failed to init pinctrl\n");
-		goto ProbeErrorExit_1;
 	}
 
 	retval = syna_tcm_config_gpio(tcm_hcd);
@@ -6800,7 +6759,6 @@ err_sysfs_create_dir:
 		syna_tcm_set_gpio(tcm_hcd, bdata->reset_gpio, false, 0, 0);
 
 err_config_gpio:
-ProbeErrorExit_1:
 err_enable_regulator:
 	if (!tcm_hcd->avdd || !tcm_hcd->iovdd)
 		LOGE(tcm_hcd->pdev->dev.parent,
