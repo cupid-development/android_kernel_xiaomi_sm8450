@@ -701,11 +701,6 @@ struct syna_tcm_hcd {
 	int maintenance_result;
 	struct mutex cmd_update_mutex;
 
-	/* SPI Pinctrl set up */
-	struct pinctrl *ts_pinctrl;
-	struct pinctrl_state *pinctrl_state_spi;
-	/* SPI Pinctrl setup end */
-
 #ifdef SYNA_TCM_XIAOMI_TOUCHFEATURE
 	struct work_struct cmd_update_work;
 	struct work_struct grip_mode_work;
