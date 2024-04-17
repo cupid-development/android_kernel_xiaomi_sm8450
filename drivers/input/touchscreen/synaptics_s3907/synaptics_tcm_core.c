@@ -3666,7 +3666,7 @@ static void syna_tcm_helper_work(struct work_struct *work)
 #if defined(CONFIG_PM) || defined(CONFIG_FB)
 static int syna_tcm_pm_resume(struct device *dev)
 {
-	int retval;
+	int i, retval;
 	struct syna_tcm_module_handler *mod_handler;
 	struct syna_tcm_hcd *tcm_hcd = dev_get_drvdata(dev);
 
@@ -3711,7 +3711,7 @@ static int syna_tcm_pm_resume(struct device *dev)
 
 	retval = tcm_hcd->sleep(tcm_hcd, false);
 	if (retval < 0) {
-		for (int i = 0; i < 5; i++) {
+		for (i = 0; i < 5; i++) {
 			msleep(5);
 			retval = tcm_hcd->sleep(tcm_hcd, false);
 			if (retval < 0) {
@@ -3978,27 +3978,27 @@ static void syna_tcm_suspend_work(struct work_struct *work)
 	return;
 }
 
-static int syna_tcm_drm_state_notifier_callback(struct notifier_block *nb,
-						unsigned long action,
-						void *data)
+#if defined(CONFIG_DRM)
+static void syna_tcm_drm_state_notifier_callback(
+	enum panel_event_notifier_tag notifier_tag,
+	struct panel_event_notification *notification, void *client_data)
 {
 	int retval = 0;
-	int transition;
-	struct mi_disp_notifier *evdata = data;
-	struct syna_tcm_hcd *tcm_hcd =
-		container_of(nb, struct syna_tcm_hcd, notifier);
+	struct syna_tcm_hcd *tcm_hcd = client_data;
 
-	if (!(action == MI_DISP_DPMS_EARLY_EVENT ||
-	      action == MI_DISP_DPMS_EVENT || action == MI_DISP_CHANGE_FPS)) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-		     "event(%lu) do not need process\n", action);
-		return 0;
+	if (!notification) {
+		LOGE(tcm_hcd->pdev->dev.parent, "Invalid notification\n");
+		return;
 	}
 
-	if (evdata && evdata->data && tcm_hcd) {
-		transition = *(int *)(evdata->data);
-		if (atomic_read(&tcm_hcd->firmware_flashing) &&
-		    transition == MI_DISP_DPMS_POWERDOWN) {
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_UNBLANK:
+		LOGN(tcm_hcd->pdev->dev.parent, "touch resume\n");
+		queue_work(tcm_hcd->event_wq, &tcm_hcd->resume_work);
+		break;
+	case DRM_PANEL_EVENT_BLANK:
+	case DRM_PANEL_EVENT_BLANK_LP:
+		if (atomic_read(&tcm_hcd->firmware_flashing)) {
 			retval = wait_event_interruptible_timeout(
 				tcm_hcd->reflash_wq,
 				!atomic_read(&tcm_hcd->firmware_flashing),
@@ -4007,47 +4007,27 @@ static int syna_tcm_drm_state_notifier_callback(struct notifier_block *nb,
 				LOGE(tcm_hcd->pdev->dev.parent,
 				     "Timed out waiting for completion of flashing firmware\n");
 				atomic_set(&tcm_hcd->firmware_flashing, 0);
-				return -EIO;
-			} else {
-				retval = 0;
+				return;
 			}
 		}
 
-		flush_workqueue(tcm_hcd->event_wq);
-		if (action == MI_DISP_DPMS_EARLY_EVENT &&
-		    (transition == MI_DISP_DPMS_POWERDOWN)) {
+		if (notification->notif_data.early_trigger) {
 			LOGN(tcm_hcd->pdev->dev.parent,
-			     "touch early_suspend by powerdown 0x%04x\n",
-			     transition);
+			     "touch early suspend\n");
 			queue_work(tcm_hcd->event_wq,
 				   &tcm_hcd->early_suspend_work);
-		} else if (action == MI_DISP_DPMS_EVENT) {
-			if (transition == MI_DISP_DPMS_POWERDOWN) {
-				LOGN(tcm_hcd->pdev->dev.parent,
-				     "touch suspend by powerdown 0x%04x\n",
-				     transition);
-				queue_work(tcm_hcd->event_wq,
-					   &tcm_hcd->suspend_work);
-			} else if (transition == MI_DISP_DPMS_LP1 ||
-				   transition == MI_DISP_DPMS_LP2) {
-				LOGN(tcm_hcd->pdev->dev.parent,
-				     "touch suspend by doze 0x%04x\n",
-				     transition);
-				queue_work(tcm_hcd->event_wq,
-					   &tcm_hcd->suspend_work);
-			} else if (transition == MI_DISP_DPMS_ON) {
-				LOGN(tcm_hcd->pdev->dev.parent,
-				     "touch resume\n");
-				queue_work(tcm_hcd->event_wq,
-					   &tcm_hcd->resume_work);
-			}
-		} else if (action == MI_DISP_CHANGE_FPS)
-			LOGI(tcm_hcd->pdev->dev.parent,
-			     "tp received fps change, new:%d\n", transition);
+		} else {
+			LOGN(tcm_hcd->pdev->dev.parent, "touch suspend\n");
+			queue_work(tcm_hcd->event_wq, &tcm_hcd->suspend_work);
+		}
+		break;
+	default:
+		LOGE(tcm_hcd->pdev->dev.parent, "notification serviced: %d\n",
+		     notification->notif_type);
+		break;
 	}
-
-	return 1;
 }
+#endif
 
 #ifdef SYNA_TCM_XIAOMI_TOUCHFEATURE
 static struct xiaomi_touch_interface *p_xiaomi_touch_interfaces = NULL;
@@ -5728,7 +5708,7 @@ static const struct file_operations tpdbg_operations = {
 #endif
 
 #ifdef SYNAPTICS_POWERSUPPLY_CB
-static int syna_tcm_get_charging_status()
+static int syna_tcm_get_charging_status(void)
 {
 	struct power_supply *usb_psy;
 	union power_supply_propval val;
@@ -6193,14 +6173,13 @@ static char syna_tcm_touch_vendor_read(void)
 }
 #endif
 
+#if defined(CONFIG_DRM)
 /*
  * pointer active_panel initlized function, used to checkout panel(config)from devices
  * tree , later will be passed to drm_notifyXXX function.
  * @param device node contains the panel
  * @return pointer to that panel if panel truely  exists, otherwise negative number
  */
-/*
-extern struct drm_panel *mi_of_drm_find_panel_for_touch(const struct device_node *np);
 static int ts_check_panel(struct device_node *np)
 {
 	int i;
@@ -6209,29 +6188,65 @@ static int ts_check_panel(struct device_node *np)
 	struct drm_panel *panel;
 
 	count = of_count_phandle_with_args(np, "panel", NULL);
-
-	printk("count = %d", count);
-
 	if (count <= 0)
 		return -ENODEV;
 
 	for (i = 0; i < count; i++) {
 		node = of_parse_phandle(np, "panel", i);
-		panel = mi_of_drm_find_panel_for_touch(node);
+		panel = of_drm_find_panel(node);
 		of_node_put(node);
 		if (!IS_ERR(panel)) {
 			active_panel = panel;
-			if (active_panel) {
-				printk("active_panel, ok");
-			}
 			return 0;
 		} else {
 			active_panel = NULL;
 		}
 	}
+
 	return PTR_ERR(panel);
 }
-*/
+
+static void ts_register_panel_notifier_work(struct work_struct *work)
+{
+	struct syna_tcm_hcd *tcm_hcd = container_of(
+		work, struct syna_tcm_hcd, panel_notifier_register_work.work);
+	int error;
+	static int check_count = 0;
+	struct spi_device *spi;
+	struct device_node *dp;
+
+	spi = to_spi_device(tcm_hcd->pdev->dev.parent);
+	dp = spi->dev.of_node;
+	LOGE(tcm_hcd->pdev->dev.parent, "Start register panel notifier\n");
+
+	error = ts_check_panel(dp);
+
+	if (!dp || !active_panel) {
+		LOGE(tcm_hcd->pdev->dev.parent,
+		     "Failed to register panel notifier, try again\n");
+		if (check_count++ < 5) {
+			schedule_delayed_work(
+				&tcm_hcd->panel_notifier_register_work,
+				msecs_to_jiffies(5000));
+		} else {
+			LOGE(tcm_hcd->pdev->dev.parent,
+			     "Failed to register panel notifier, not trying again\n");
+		}
+		return;
+	}
+
+	if (active_panel) {
+		tcm_hcd->notifier_cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_PRIMARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
+			&syna_tcm_drm_state_notifier_callback, (void *)tcm_hcd);
+		if (!tcm_hcd->notifier_cookie) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+			     "Failed to register for panel events\n");
+		}
+	}
+}
+#endif
 
 static int syna_tcm_probe(struct platform_device *pdev)
 {
@@ -6496,12 +6511,12 @@ static int syna_tcm_probe(struct platform_device *pdev)
 	INIT_WORK(&tcm_hcd->set_report_rate_work,
 		  syna_tcm_set_report_rate_work);
 
-	tcm_hcd->notifier.notifier_call = syna_tcm_drm_state_notifier_callback;
-	retval = mi_disp_register_client(&tcm_hcd->notifier);
-	if (retval < 0) {
-		LOGE(tcm_hcd->pdev->dev.parent,
-		     "ERROR: register notifier failed, retval=%d\n", retval);
-	}
+#if defined(CONFIG_DRM)
+	INIT_DELAYED_WORK(&tcm_hcd->panel_notifier_register_work,
+			  ts_register_panel_notifier_work);
+	schedule_delayed_work(&tcm_hcd->panel_notifier_register_work,
+			      msecs_to_jiffies(5000));
+#endif
 
 #ifdef SYNA_TCM_XIAOMI_TOUCHFEATURE
 	tcm_hcd->game_wq =
@@ -6706,7 +6721,11 @@ err_xiaomi_touchfeature:
 	syna_tcm_debugfs_exit();
 #endif
 
-	mi_disp_unregister_client(&tcm_hcd->notifier);
+#if defined(CONFIG_DRM)
+	cancel_delayed_work_sync(&tcm_hcd->panel_notifier_register_work);
+	if (active_panel && tcm_hcd->notifier_cookie)
+		panel_event_notifier_unregister(tcm_hcd->notifier_cookie);
+#endif
 
 err_pm_event_wq:
 	/* cancel_work_sync(&tcm_hcd->early_suspend_work);
@@ -6718,10 +6737,6 @@ err_pm_event_wq:
 #ifdef REPORT_NOTIFIER
 	kthread_stop(tcm_hcd->notifier_thread);
 err_create_run_kthread:
-#endif
-
-#ifdef CONFIG_FB
-	fb_unregister_client(&tcm_hcd->fb_notifier);
 #endif
 
 	if (tcm_hcd->tp_lockdown_info_proc)
@@ -6859,7 +6874,13 @@ static int syna_tcm_remove(struct platform_device *pdev)
 	flush_workqueue(tcm_hcd->watchdog.workqueue);
 	destroy_workqueue(tcm_hcd->watchdog.workqueue);
 #endif
-	mi_disp_unregister_client(&tcm_hcd->notifier);
+
+#if defined(CONFIG_DRM)
+	cancel_delayed_work_sync(&tcm_hcd->panel_notifier_register_work);
+	if (active_panel && tcm_hcd->notifier_cookie)
+		panel_event_notifier_unregister(tcm_hcd->notifier_cookie);
+#endif
+
 	cancel_work_sync(&tcm_hcd->helper.work);
 	flush_workqueue(tcm_hcd->helper.workqueue);
 	destroy_workqueue(tcm_hcd->helper.workqueue);
@@ -6877,10 +6898,6 @@ static int syna_tcm_remove(struct platform_device *pdev)
 
 #ifdef REPORT_NOTIFIER
 	kthread_stop(tcm_hcd->notifier_thread);
-#endif
-
-#ifdef CONFIG_FB
-	fb_unregister_client(&tcm_hcd->fb_notifier);
 #endif
 
 	for (idx = 0; idx < ARRAY_SIZE(dynamic_config_attrs); idx++) {

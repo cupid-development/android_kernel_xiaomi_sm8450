@@ -49,12 +49,14 @@
 #include <linux/spi/spi.h>
 #include <linux/of_gpio.h>
 
-#include <linux/fb.h>
+#if defined(CONFIG_DRM)
+#include <linux/soc/qcom/panel_event_notifier.h>
+#include <drm/drm_panel.h>
+#endif
 #include <linux/notifier.h>
 #include "synaptics_tcm.h"
 #include "../xiaomi/xiaomi_touch.h"
 #include "synaptics_tcm_xiaomi_board_data.h"
-#include "../../../gpu/drm/mediatek/mediatek_v2/mi_disp/mi_disp_notifier.h"
 
 #ifdef SYNAPTICS_DEBUGFS_ENABLE
 #include <linux/debugfs.h>
@@ -625,10 +627,10 @@ struct syna_tcm_hcd {
 	struct device *syna_tcm_dev;
 	dev_t tp_dev_num;
 	struct notifier_block notifier;
-	struct notifier_block fb_notifier;
 	struct notifier_block power_supply_notifier;
 	int charging_status;
 	struct delayed_work power_supply_work;
+	struct delayed_work panel_notifier_register_work;
 	struct syna_tcm_buffer in;
 	struct syna_tcm_buffer out;
 	struct syna_tcm_buffer resp;
@@ -933,8 +935,6 @@ static inline unsigned int ceil_div(unsigned int dividend, unsigned divisor)
 	return (dividend + divisor - 1) / divisor;
 }
 
-int mi_disp_register_client(struct notifier_block *nb);
-
 void touch_fod_test(int value);
 
 int touch_free_objects(struct syna_tcm_hcd *tcm_hcd);
@@ -942,7 +942,5 @@ int touch_free_objects(struct syna_tcm_hcd *tcm_hcd);
 int touch_flush_slots(struct syna_tcm_hcd *tcm_hcd);
 
 int touch_update_fod_enable_value(struct syna_tcm_hcd *tcm_hcd);
-
-extern int mi_disp_set_fod_queue_work(u32 fod_btn, bool from_touch);
 
 #endif
