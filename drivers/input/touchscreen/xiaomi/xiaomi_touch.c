@@ -393,6 +393,7 @@ static struct xiaomi_touch xiaomi_touch_dev = {
 	.wait_queue = __WAIT_QUEUE_HEAD_INITIALIZER(xiaomi_touch_dev.wait_queue),
 	.fod_press_status_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.fod_press_status_mutex),
 	.gesture_single_tap_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.gesture_single_tap_mutex),
+	.gesture_double_tap_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.gesture_double_tap_mutex),
 	.abnormal_event_mutex = __MUTEX_INITIALIZER(xiaomi_touch_dev.abnormal_event_mutex),
 };
 
@@ -1702,6 +1703,23 @@ static ssize_t gesture_single_tap_enabled_store(struct device *dev,
 	return count;
 }
 
+int notify_gesture_double_tap(void)
+{
+	mutex_lock(&xiaomi_touch_dev.gesture_double_tap_mutex);
+	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
+		     "gesture_double_tap_state");
+	mutex_unlock(&xiaomi_touch_dev.gesture_double_tap_mutex);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(notify_gesture_double_tap);
+
+static ssize_t gesture_double_tap_value_show(struct device *dev,
+					     struct device_attribute *attr,
+					     char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", 1);
+}
+
 static ssize_t fod_press_status_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
@@ -2246,6 +2264,9 @@ static DEVICE_ATTR_RW(gesture_single_tap_enabled);
 static DEVICE_ATTR(gesture_single_tap_state, (0664),
 		   gesture_single_tap_value_show, NULL);
 
+static DEVICE_ATTR(gesture_double_tap_state, (0664),
+		   gesture_double_tap_value_show, NULL);
+
 static DEVICE_ATTR(resolution_factor, 0644, resolution_factor_show, NULL);
 
 static DEVICE_ATTR(touch_active_status, (0664), touch_active_status_show, NULL);
@@ -2287,6 +2308,7 @@ static struct attribute *touch_attr_group[] = {
 	&dev_attr_fod_longpress_gesture_enabled.attr,
 	&dev_attr_gesture_single_tap_enabled.attr,
 	&dev_attr_gesture_single_tap_state.attr,
+	&dev_attr_gesture_double_tap_state.attr,
 	&dev_attr_resolution_factor.attr,
 	&dev_attr_touch_active_status.attr,
 	&dev_attr_touch_finger_status.attr,

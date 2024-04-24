@@ -193,6 +193,7 @@ struct xiaomi_touch {
 	struct mutex palm_mutex;
 	struct mutex prox_mutex;
 	struct mutex gesture_single_tap_mutex;
+	struct mutex gesture_double_tap_mutex;
 	struct mutex fod_press_status_mutex;
 	struct mutex abnormal_event_mutex;
 	wait_queue_head_t wait_queue;
@@ -288,6 +289,8 @@ extern void last_touch_events_collect(int slot, int state);
 int xiaomi_touch_set_suspend_state(int state);
 
 extern int notify_gesture_single_tap(void);
+
+extern int notify_gesture_double_tap(void);
 
 extern int update_fod_press_status(int value);
 
