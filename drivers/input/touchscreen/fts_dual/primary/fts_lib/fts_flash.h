@@ -25,7 +25,7 @@
 #ifdef FW_H_FILE
 #define PATH_FILE_FW		"NULL"
 #else
-#define PATH_FILE_FW		"st_fts.ubin"	/* /< new FW bin file name */
+#define PATH_FILE_FW		"st_fts_l18.ubin"	/* /< new FW bin file name */
 #endif
 
 #ifdef FW_H_FILE

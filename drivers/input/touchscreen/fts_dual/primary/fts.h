@@ -22,7 +22,7 @@
 #include <linux/device.h>
 #include "fts_lib/fts_io.h"
 
-#define FTS_TS_DRV_NAME		"fts"
+#define FTS_TS_DRV_NAME		"fts-pri"
 #define FTS_TS_DRV_VERSION	"6.0.3"
 #define FTS_TS_DRV_VER		0x06000003
 
@@ -61,6 +61,15 @@
 #define TOUCH_TYPE_GLOVE			0x02	/* /< Glove touch */
 #define TOUCH_TYPE_LARGE			0x03
 
+#define PINCTRL_STATE_ACTIVE "pmx_ts_pri_active"
+#define PINCTRL_STATE_SUSPEND "pmx_ts_pri_suspend"
+#define PINCTRL_STATE_RELEASE "pmx_ts_pri_release"
+
+#define GRIP_MODE_DEBUG
+#define GRIP_RECT_NUM 12
+#define GRIP_PARAMETER_NUM 8
+#define EXPERT_ARRAY_SIZE 3
+
 /*
   * Forward declaration
   */
@@ -80,6 +89,8 @@ struct fts_hw_platform_data {
 	int irq_gpio;	/* /< number of the gpio associated to the interrupt pin
 			 * */
 	int reset_gpio;	/* /< number of the gpio associated to the reset pin */
+	unsigned int x_max;
+	unsigned int y_max;
 	const char *vdd_reg_name;	/* /< name of the VDD regulator */
 	const char *avdd_reg_name;	/* /< name of the AVDD regulator */
 };
@@ -110,8 +121,6 @@ struct fts_ts_info {
 	int resume_bit;	/* /< Indicate if screen off/on */
 	unsigned int mode;	/* /< Device operating mode (bitmask: msb
 				 * indicate if active or lpm) */
-	struct notifier_block notifier;	/* /< Used for be notified from a
-					 * suspend/resume event */
 	unsigned long touch_id;	/* /< Bitmask for touch id (mapped to input
 				 * slots) */
 	bool sensor_sleep;	/* /< if true suspend was called while if false
@@ -122,6 +131,13 @@ struct fts_ts_info {
 	struct workqueue_struct  *fwu_workqueue;/* /< Fw update work
 							 * queue */
 #endif
+
+	struct pinctrl *ts_pinctrl;
+	struct pinctrl_state *pinctrl_state_active;
+	struct pinctrl_state *pinctrl_state_suspend;
+
+	struct delayed_work panel_notifier_register_work;
+	void *notifier_cookie;
 };
 
 extern int fts_proc_init(void);

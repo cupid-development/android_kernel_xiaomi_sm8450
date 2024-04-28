@@ -49,7 +49,7 @@ static int reset_gpio = GPIO_NOT_DEFINED;
   *slave
   * @return client if it was previously set or NULL in all the other cases
   */
-struct i2c_client *get_client()
+struct i2c_client *get_client(void)
 {
 	if (client != NULL)
 		return (struct i2c_client *)client;
@@ -62,7 +62,7 @@ struct i2c_client *get_client()
   *slave
   * @return client if it was previously set or NULL in all the other cases
   */
-struct spi_device *get_client()
+struct spi_device *get_client(void)
 {
 	if (client != NULL)
 		return (struct spi_device *)client;
@@ -660,12 +660,13 @@ void log_info(int force, const char *msg, ...)
 		|| 1
 #endif
 		) {
+		char log_buffer[120];
 		va_list args;
 
-		printk("%s", "[ FTS ] ");
 		va_start(args, msg);
-		vprintk(msg, args);
+		vscnprintf(log_buffer, sizeof(log_buffer), msg, args);
 		va_end(args);
+		pr_info("%s", log_buffer);
 	}
 }
 
