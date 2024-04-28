@@ -1,0 +1,11 @@
+config TOUCHSCREEN_ST_FTS_SPI_DUAL
+	tristate "ST FTS SPI DUAL Touchscreen"
+	depends on I2C
+	help
+	  Say Y here if you have ST FTS series SPI touchscreen.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here: the
+	  modules will be named fts_touch_spi_pri and
+	  fts_touch_spi_sec

@@ -1,0 +1,2 @@
+obj-$(CONFIG_TOUCHSCREEN_ST_FTS_SPI_DUAL) += primary/
+obj-$(CONFIG_TOUCHSCREEN_ST_FTS_SPI_DUAL) += secondary/
