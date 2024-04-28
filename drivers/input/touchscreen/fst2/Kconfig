@@ -1,0 +1,8 @@
+config TOUCHSCREEN_FST2
+	tristate "STMicroelectronics multitouch touchscreen - FingerTipS (FST2)"
+	depends on I2C || SPI
+	help
+	  Say Y here to enable STMicroelectronics (FST2) touchscreen support.
+	  If unsure, say N.
+	  To compile this driver as a module, choose M here: the module
+	  will be called fst2.
