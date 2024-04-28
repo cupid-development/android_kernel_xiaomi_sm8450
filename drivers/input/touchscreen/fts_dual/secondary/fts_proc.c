@@ -2470,7 +2470,7 @@ int fts_proc_init(void)
 
 	int retval = 0;
 
-	fts_dir = proc_mkdir_data("fts", 0777, NULL, NULL);
+	fts_dir = proc_mkdir_data("fts-sec", 0777, NULL, NULL);
 	if (fts_dir == NULL) {
 		retval = -ENOMEM;
 		goto out;

@@ -1,7 +1,7 @@
 ccflags-y += -DCONFIG_I2C_BY_DMA
 ifneq ($(KERNELRELEASE),)
-    obj-$(CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI) := fts_touch_spi.o
-    fts_touch_spi-y := fts_lib/ftsCompensation.o \
+	obj-$(CONFIG_TOUCHSCREEN_ST_FTS_SPI_DUAL) := fts_touch_spi_sec.o
+	fts_touch_spi_sec-y := fts_lib/ftsCompensation.o \
 			fts_lib/ftsCore.o \
 			fts_lib/ftsError.o \
 			fts_lib/ftsFrame.o \
@@ -13,13 +13,13 @@ ifneq ($(KERNELRELEASE),)
 			fts_proc.o \
 			fts.o
 else
-    KDIR = $(OUT)/obj/KERNEL_OBJ
-    CROSS_COMPILE = $(ANDROID_TOOLCHAIN)/aarch64-linux-android-
-    CLANG = $(ANDROID_BUILD_TOP)/prebuilts/clang/host/linux-x86/clang-r370808
-    REAL_CC = $(CLANG)/bin/clang
-    AR = $(CLANG)/bin/llvm-ar
-    LLVM_NM = $(CLANG)/bin/llvm-nm
-    LD = $(CLANG)/bin/ld.lld
+	KDIR = $(OUT)/obj/KERNEL_OBJ
+	CROSS_COMPILE = $(ANDROID_TOOLCHAIN)/aarch64-linux-android-
+	CLANG = $(ANDROID_BUILD_TOP)/prebuilts/clang/host/linux-x86/clang-r370808
+	REAL_CC = $(CLANG)/bin/clang
+	AR = $(CLANG)/bin/llvm-ar
+	LLVM_NM = $(CLANG)/bin/llvm-nm
+	LD = $(CLANG)/bin/ld.lld
 
 .PHONY: clean
 
