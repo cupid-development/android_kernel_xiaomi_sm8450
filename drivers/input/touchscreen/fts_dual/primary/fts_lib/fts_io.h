@@ -95,6 +95,7 @@
 #define FLASH_START_ADDR		0x00000000
 
 #define SCAN_MODE_ADDR			0x0010
+#define GESTURE_ENABLE_ADDR		0x0018
 #define FLASH_SAVE_ADDR			0x0020
 #define HDM_WRITE_REQ_ADDR		0x0021
 #define PI_ADDR				0x0022
@@ -122,6 +123,10 @@
 						* gestures, proximity etc) */
 #define EVT_ID_DEBUG			0xE3	/* /< Debug Info */
 #define EVT_ID_ERROR			0xF3	/* /< Error Event */
+
+#define EVT_TYPE_USER_GESTURE	0x02 /* Gesture detection event report */
+
+#define GEST_ID_DBLTAP			0x05 /* Double tap */
 
 #define FIFO_EVENT_SIZE			8 /* /< number of bytes of one event */
 #define NUM_EVT_ID			(((EVT_ID_ERROR & 0xF0) >> 4)+1)
