@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/clk.h>
@@ -383,6 +383,9 @@ static int a6xx_hwsched_gmu_first_boot(struct adreno_device *adreno_dev)
 
 	icc_set_bw(pwr->icc_path, 0, kBps_to_icc(pwr->ddr_table[level]));
 
+	/* Clear any hwsched faults that might have been left over */
+	adreno_hwsched_clear_fault(adreno_dev);
+
 	ret = a6xx_gmu_device_start(adreno_dev);
 	if (ret)
 		goto err;
@@ -453,6 +456,9 @@ static int a6xx_hwsched_gmu_boot(struct adreno_device *adreno_dev)
 	a6xx_gmu_register_config(adreno_dev);
 
 	a6xx_gmu_irq_enable(adreno_dev);
+
+	/* Clear any hwsched faults that might have been left over */
+	adreno_hwsched_clear_fault(adreno_dev);
 
 	ret = a6xx_gmu_device_start(adreno_dev);
 	if (ret)
@@ -590,9 +596,6 @@ static int a6xx_hwsched_gpu_boot(struct adreno_device *adreno_dev)
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
 
-	/* Clear any GPU faults that might have been left over */
-	adreno_clear_gpu_fault(adreno_dev);
-
 	ret = kgsl_mmu_start(device);
 	if (ret)
 		goto err;
@@ -715,6 +718,7 @@ done:
 
 static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 {
+	bool bcl_state = adreno_dev->bcl_enabled;
 	struct a6xx_gmu_device *gmu = to_a6xx_gmu(adreno_dev);
 	struct kgsl_device *device = KGSL_DEVICE(adreno_dev);
 	int ret;
@@ -726,7 +730,23 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 
 	adreno_hwsched_start(adreno_dev);
 
-	ret = a6xx_hwsched_gmu_boot(adreno_dev);
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_HIBERNATION) &&
+		!test_bit(GMU_PRIV_PDC_RSC_LOADED, &gmu->flags)) {
+		/*
+		 * During hibernation entry ZAP was unloaded and
+		 * CBCAST BCL register is in reset state.
+		 * Set bcl_enabled to false to skip KMD's HFI request
+		 * to GMU for BCL feature, send BCL feature request to
+		 * GMU after ZAP load at GPU boot. This ensures that
+		 * Central Broadcast register was programmed before
+		 * enabling BCL.
+		 */
+		adreno_dev->bcl_enabled = false;
+		ret = a6xx_hwsched_gmu_first_boot(adreno_dev);
+	} else {
+		ret = a6xx_hwsched_gmu_boot(adreno_dev);
+	}
+
 	if (ret)
 		return ret;
 
@@ -739,6 +759,9 @@ static int a6xx_hwsched_boot(struct adreno_device *adreno_dev)
 	kgsl_pwrscale_wake(device);
 
 	set_bit(GMU_PRIV_GPU_STARTED, &gmu->flags);
+
+	if (IS_ENABLED(CONFIG_QCOM_KGSL_HIBERNATION))
+		adreno_dev->bcl_enabled = bcl_state;
 
 	device->pwrctrl.last_stat_updated = ktime_get();
 	device->state = KGSL_STATE_ACTIVE;

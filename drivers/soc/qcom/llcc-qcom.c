@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/bitmap.h>
@@ -907,7 +907,7 @@ static int llcc_spad_init(struct llcc_slice_desc *desc)
 {
 	int ret;
 	u32 lpi_reg, llcc_reg;
-	u32 lpi_val, llcc_val;
+	u32 lpi_val, llcc_val = 0;
 
 	/* FF clock will be on as during initialization the
 	 * following CSR will be 1
@@ -1475,6 +1475,9 @@ static int qcom_llcc_probe(struct platform_device *pdev)
 	u32 sz, ch_reg_sz, ch_reg_off, ch_num;
 	bool multiple_llcc = false;
 	u32 sct_config;
+
+	if (!IS_ERR(drv_data))
+		return -EBUSY;
 
 	drv_data = devm_kzalloc(dev, sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data) {

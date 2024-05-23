@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #define pr_fmt(fmt) "%s:%s: " fmt, KBUILD_MODNAME, __func__
 
@@ -42,6 +42,7 @@ static struct ipclite_debug_struct *ipclite_dbg_struct;
 static struct ipclite_debug_inmem_buf *ipclite_dbg_inmem;
 static struct mutex ssr_mutex;
 static struct kobject *sysfs_kobj;
+static bool hibernation_enabled;
 
 static uint32_t channel_status_info[IPCMEM_NUM_HOSTS];
 static u32 global_atomic_support = GLOBAL_ATOMICS_ENABLED;
@@ -727,8 +728,16 @@ void ipclite_recover(enum ipcmem_host_type core_id)
 {
 	int ret, i, host, host0, host1;
 
-	IPCLITE_OS_LOG(IPCLITE_DBG, "IPCLite Recover - Crashed Core : %d\n", core_id);
+	if (!ipclite) {
+		IPCLITE_OS_LOG(IPCLITE_ERR, "IPCLite not initialized\n");
+		return;
+	}
 
+	IPCLITE_OS_LOG(IPCLITE_DBG, "IPCLite Recover - Crashed Core : %d\n", core_id);
+	if (core_id >= IPCMEM_NUM_HOSTS) {
+		IPCLITE_OS_LOG(IPCLITE_ERR, "Invalid Core ID\n");
+		return;
+	}
 	/* verify and reset the hw mutex lock */
 	if (core_id == ipclite->ipcmem.toc->recovery.global_atomic_hwlock_owner) {
 		ipclite->ipcmem.toc->recovery.global_atomic_hwlock_owner = IPCMEM_INVALID_HOST;
@@ -1013,6 +1022,14 @@ static int set_ipcmem_access_control(struct ipclite_info *ipclite)
 	ret = hyp_assign_phys(ipclite->ipcmem.mem.aux_base,
 				ipclite->ipcmem.mem.size, srcVM, 1,
 				destVM, destVMperm, 2);
+
+	if (ret != 0) {
+		IPCLITE_OS_LOG(IPCLITE_ERR, "hyp assign for ipcmem failed\n");
+		return ret;
+	}
+
+	hibernation_enabled = true;
+
 	return ret;
 }
 
@@ -1460,7 +1477,7 @@ static int ipclite_probe(struct platform_device *pdev)
 		if (hwlock_id != -EPROBE_DEFER)
 			dev_err(&pdev->dev, "failed to retrieve hwlock\n");
 		ret = hwlock_id;
-		goto error;
+		goto release;
 	}
 	IPCLITE_OS_LOG(IPCLITE_DBG, "Hwlock id retrieved, hwlock_id=%d\n", hwlock_id);
 
@@ -1468,7 +1485,7 @@ static int ipclite_probe(struct platform_device *pdev)
 	if (!ipclite->hwlock) {
 		IPCLITE_OS_LOG(IPCLITE_ERR, "Failed to assign hwlock_id\n");
 		ret = -ENXIO;
-		goto error;
+		goto release;
 	}
 	IPCLITE_OS_LOG(IPCLITE_DBG, "Hwlock id assigned successfully, hwlock=%p\n",
 									ipclite->hwlock);
@@ -1557,10 +1574,39 @@ mem_release:
 	 */
 release:
 	kfree(ipclite);
+	ipclite = NULL;
 error:
 	IPCLITE_OS_LOG(IPCLITE_ERR, "IPCLite probe failed\n");
 	return ret;
 }
+
+static int ipclite_driver_freeze(struct device *dev)
+{
+	if (hibernation_enabled)
+		hibernation_enabled = false;
+
+	return 0;
+}
+
+static int ipclite_driver_restore(struct device *dev)
+{
+	int ret = 0;
+
+	if (!hibernation_enabled) {
+		ret = set_ipcmem_access_control(ipclite);
+		if (ret) {
+			dev_err(dev, "failed to setup ipclite mem\n");
+			return -EINVAL;
+		}
+	}
+
+	return 0;
+}
+
+static const struct dev_pm_ops ipclite_hibernate_pm_ops = {
+	.freeze = ipclite_driver_freeze,
+	.restore = ipclite_driver_restore,
+};
 
 static const struct of_device_id ipclite_of_match[] = {
 	{ .compatible = "qcom,ipclite"},
@@ -1573,6 +1619,7 @@ static struct platform_driver ipclite_driver = {
 	.driver = {
 		.name = "ipclite",
 		.of_match_table = ipclite_of_match,
+		.pm = &ipclite_hibernate_pm_ops,
 	},
 };
 

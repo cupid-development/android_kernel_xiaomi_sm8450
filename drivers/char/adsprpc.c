@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 /* Uncomment this block to log an error on every VERIFY failure */
@@ -65,12 +65,20 @@
 
 #define CREATE_TRACE_POINTS
 #include <trace/events/fastrpc.h>
+#include <soc/qcom/socinfo.h>
+
+#ifdef CONFIG_HIBERNATION
+#include <linux/suspend.h>
+#include <linux/notifier.h>
+#endif
 
 #define TZ_PIL_PROTECT_MEM_SUBSYS_ID 0x0C
 #define TZ_PIL_CLEAR_PROTECT_MEM_SUBSYS_ID 0x0D
 #define TZ_PIL_AUTH_QDSP6_PROC 1
 
 #define FASTRPC_ENOSUCH 39
+#define VMID_SSC_Q6     5
+#define VMID_ADSP_Q6    6
 #define DEBUGFS_SIZE (32*1024)
 #define PID_SIZE 10
 
@@ -532,6 +540,7 @@ struct fastrpc_channel_ctx {
 	struct mutex rpmsg_mutex;
 	uint64_t sesscount;
 	uint64_t ssrcount;
+	int in_hib;
 	void *handle;
 	uint64_t prevssrcount;
 	int subsystemstate;
@@ -567,6 +576,8 @@ struct fastrpc_apps {
 	struct hlist_head drivers;
 	spinlock_t hlock;
 	struct device *dev;
+	/* Indicates fastrpc device node info */
+	struct device *dev_fastrpc;
 	unsigned int latency;
 	int rpmsg_register;
 	/* Flag to determine fastrpc bus registration */
@@ -592,6 +603,8 @@ struct fastrpc_apps {
 	unsigned int lowest_capacity_core_count;
 	/* Flag to check if PM QoS vote needs to be done for only one core */
 	bool single_core_latency_vote;
+	/* Indicates cdsp device status */
+	int fastrpc_cdsp_status;
 };
 
 struct fastrpc_mmap {
@@ -679,6 +692,7 @@ struct fastrpc_file {
 	struct dentry *debugfs_file;
 	struct dev_pm_qos_request *dev_pm_qos_req;
 	int qos_request;
+	struct mutex pm_qos_mutex;
 	struct mutex map_mutex;
 	struct mutex internal_map_mutex;
 	/* Identifies the device (MINOR_NUM_DEV / MINOR_NUM_SECURE_DEV) */
@@ -1102,7 +1116,7 @@ skip_buf_cache:
 			goto bail;
 		}
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid) {
+		if ((vmid) && (fl->apps->channel[cid].in_hib == 0)) {
 			int srcVM[2] = {VMID_HLOS, vmid};
 			int hyp_err = 0;
 
@@ -1404,7 +1418,8 @@ static void fastrpc_mmap_free(struct fastrpc_mmap *map, uint32_t flags)
 			sess = fl->sctx;
 
 		vmid = fl->apps->channel[cid].vmid;
-		if (vmid && map->phys) {
+		if (vmid && map->phys &&
+			(me->channel[fl->cid].in_hib == 0)) {
 			int hyp_err = 0;
 			int srcVM[2] = {VMID_HLOS, vmid};
 
@@ -3192,6 +3207,27 @@ static int fastrpc_invoke_send(struct smq_invoke_ctx *ctx,
 	return err;
 }
 
+
+/*
+ * fastrpc_get_cdsp_status - Reads the property string from soc_info
+			    denoted for cdsp part, and updates
+ *                          the cdsp device availability status
+ *                          if the cdsp is not defective.
+ * @me  : pointer to fastrpc_apps.
+ */
+
+static void fastrpc_get_cdsp_status(struct fastrpc_apps *me)
+{
+	if (socinfo_get_part_info(PART_NSP)) {
+		me->fastrpc_cdsp_status = 0;
+		ADSPRPC_ERR(
+			"cdsp part defective with status:%x\n", me->fastrpc_cdsp_status);
+	} else {
+		me->fastrpc_cdsp_status = 1;
+		ADSPRPC_INFO("cdsp available with status: %x\n", me->fastrpc_cdsp_status);
+	}
+}
+
 /*
  * fastrpc_lowest_capacity_corecount - Counts number of cores corresponding
  * to cluster id 0. If a core is defective or unavailable, skip counting
@@ -4951,14 +4987,18 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 	int err = 0;
 	struct fastrpc_apps *me = &gfa;
 	int tgid = 0;
-	int destVM[1] = {VMID_HLOS};
-	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+	struct fastrpc_ioctl_invoke_async ioctl;
+	remote_arg_t ra[2];
 	int cid = -1;
+	struct {
+		uint8_t skey;
+	} routargs;
 
 	if (!fl) {
 		err = -EBADF;
 		goto bail;
 	}
+	tgid = fl->tgid;
 	cid = fl->cid;
 	VERIFY(err, VALID_FASTRPC_CID(cid));
 	if (err) {
@@ -4968,61 +5008,60 @@ static int fastrpc_munmap_on_dsp_rh(struct fastrpc_file *fl, uint64_t phys,
 			cid);
 		goto bail;
 	}
-	if (flags == ADSP_MMAP_HEAP_ADDR) {
-		struct fastrpc_ioctl_invoke_async ioctl;
-		remote_arg_t ra[2];
-		int err = 0;
-		struct {
-			uint8_t skey;
-		} routargs;
+	ra[0].buf.pv = (void *)&tgid;
+	ra[0].buf.len = sizeof(tgid);
+	ra[1].buf.pv = (void *)&routargs;
+	ra[1].buf.len = sizeof(routargs);
+	ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
+	ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
+	ioctl.inv.pra = ra;
+	ioctl.fds = NULL;
+	ioctl.attrs = NULL;
+	ioctl.crc = NULL;
+	ioctl.perf_kernel = NULL;
+	ioctl.perf_dsp = NULL;
+	ioctl.job = NULL;
 
-		tgid = fl->tgid;
-		ra[0].buf.pv = (void *)&tgid;
-		ra[0].buf.len = sizeof(tgid);
-
-		ra[1].buf.pv = (void *)&routargs;
-		ra[1].buf.len = sizeof(routargs);
-
-		ioctl.inv.handle = FASTRPC_STATIC_HANDLE_PROCESS_GROUP;
-		ioctl.inv.sc = REMOTE_SCALARS_MAKE(9, 1, 1);
-		ioctl.inv.pra = ra;
-		ioctl.fds = NULL;
-		ioctl.attrs = NULL;
-		ioctl.crc = NULL;
-		ioctl.perf_kernel = NULL;
-		ioctl.perf_dsp = NULL;
-		ioctl.job = NULL;
-
-		if (locked) {
-			mutex_unlock(&fl->map_mutex);
-			mutex_unlock(&me->channel[cid].smd_mutex);
-		}
-		VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
-				FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl)));
-		if (locked) {
-			mutex_lock(&me->channel[cid].smd_mutex);
-			mutex_lock(&fl->map_mutex);
-		}
-		if (err)
-			goto bail;
-	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
-		if (me->channel[cid].rhvm.vmid) {
-			err = hyp_assign_phys(phys,
-					(uint64_t)size,
-					me->channel[cid].rhvm.vmid,
-					me->channel[cid].rhvm.vmcount,
-					destVM, destVMperm, 1);
-			if (err) {
-				ADSPRPC_ERR(
-					"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
-					err, phys, size);
-				err = -EADDRNOTAVAIL;
-				goto bail;
-			}
-		}
+	if (locked) {
+		mutex_unlock(&fl->map_mutex);
+		mutex_unlock(&me->channel[cid].smd_mutex);
 	}
+	VERIFY(err, 0 == (err = fastrpc_internal_invoke(fl,
+			FASTRPC_MODE_PARALLEL, KERNEL_MSG_WITH_ZERO_PID, &ioctl)));
+	if (locked) {
+		mutex_lock(&me->channel[cid].smd_mutex);
+		mutex_lock(&fl->map_mutex);
+	}
+	if (err)
+		goto bail;
 
 bail:
+	return err;
+}
+
+static int fastrpc_munmap_rh(uint64_t phys, size_t size,
+						uint32_t flags)
+{
+	int err = 0;
+	struct fastrpc_apps *me = &gfa;
+	int destVM[1] = {VMID_HLOS};
+	int destVMperm[1] = {PERM_READ | PERM_WRITE | PERM_EXEC};
+
+	if ((me->channel[RH_CID].rhvm.vmid)
+			&& (me->channel[RH_CID].in_hib == 0)) {
+		err = hyp_assign_phys(phys,
+				(uint64_t)size,
+				me->channel[RH_CID].rhvm.vmid,
+				me->channel[RH_CID].rhvm.vmcount,
+				destVM, destVMperm, 1);
+		if (err) {
+			ADSPRPC_ERR(
+				"rh hyp unassign failed with %d for phys 0x%llx, size %zu\n",
+				err, phys, size);
+			err = -EADDRNOTAVAIL;
+			return err;
+		}
+	}
 	return err;
 }
 
@@ -5035,10 +5074,14 @@ static int fastrpc_munmap_on_dsp(struct fastrpc_file *fl, uintptr_t raddr,
 						size, flags)));
 	if (err)
 		goto bail;
-	if (flags == ADSP_MMAP_HEAP_ADDR ||
-				flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+	if (flags == ADSP_MMAP_HEAP_ADDR) {
 		VERIFY(err, !(err = fastrpc_munmap_on_dsp_rh(fl, phys,
 			size, flags, 0)));
+		if (err)
+			goto bail;
+	} else if (flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+		VERIFY(err, !(err = fastrpc_munmap_rh(phys,
+			size, flags)));
 		if (err)
 			goto bail;
 	}
@@ -5057,10 +5100,12 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 	unsigned long irq_flags = 0;
 
 	INIT_LIST_HEAD(&head);
-	VERIFY(err, fl->cid == RH_CID);
-	if (err) {
-		err = -EBADR;
-		goto bail;
+	if (fl) {
+		VERIFY(err, fl->cid == RH_CID);
+		if (err) {
+			err = -EBADR;
+			goto bail;
+		}
 	}
 	do {
 		match = NULL;
@@ -5073,8 +5118,18 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 		spin_unlock_irqrestore(&me->hlock, irq_flags);
 
 		if (match) {
-			err = fastrpc_munmap_on_dsp_rh(fl, match->phys,
-						match->size, match->flags, locked);
+			if (match->flags == ADSP_MMAP_REMOTE_HEAP_ADDR) {
+				err = fastrpc_munmap_rh(match->phys,
+						match->size, match->flags);
+			} else if (match->flags == ADSP_MMAP_HEAP_ADDR) {
+				if (fl)
+					err = fastrpc_munmap_on_dsp_rh(fl, match->phys,
+							match->size, match->flags, locked);
+				else {
+					pr_err("Cannot communicate with DSP, ADSP is down\n");
+					fastrpc_mmap_add(match);
+				}
+			}
 			if (err)
 				goto bail;
 			memset(&ramdump_segments_rh, 0, sizeof(ramdump_segments_rh));
@@ -5089,19 +5144,19 @@ static int fastrpc_mmap_remove_ssr(struct fastrpc_file *fl, int locked)
 					pr_err("adsprpc: %s: unable to dump heap (err %d)\n",
 								__func__, ret);
 			}
-			if (!locked)
+			if (!locked && fl)
 				mutex_lock(&fl->map_mutex);
 			fastrpc_mmap_free(match, 0);
-			if (!locked)
+			if (!locked && fl)
 				mutex_unlock(&fl->map_mutex);
 		}
 	} while (match);
 bail:
 	if (err && match) {
-		if (!locked)
+		if (!locked && fl)
 			mutex_lock(&fl->map_mutex);
 		fastrpc_mmap_add(match);
-		if (!locked)
+		if (!locked && fl)
 			mutex_unlock(&fl->map_mutex);
 	}
 	return err;
@@ -5818,6 +5873,7 @@ skip_dump_wait:
 	fastrpc_remote_buf_list_free(fl);
 	mutex_destroy(&fl->map_mutex);
 	mutex_destroy(&fl->internal_map_mutex);
+	mutex_destroy(&fl->pm_qos_mutex);
 	kfree(fl->dev_pm_qos_req);
 	kfree(fl->gidlist.gids);
 	kfree(fl);
@@ -6152,6 +6208,7 @@ static int fastrpc_channel_open(struct fastrpc_file *fl)
 		me->channel[cid].prevssrcount =
 					me->channel[cid].ssrcount;
 	}
+	me->channel[cid].in_hib = 0;
 	mutex_unlock(&me->channel[cid].smd_mutex);
 
 bail:
@@ -6231,6 +6288,7 @@ static int fastrpc_device_open(struct inode *inode, struct file *filp)
 	spin_lock_irqsave(&me->hlock, irq_flags);
 	hlist_add_head(&fl->hn, &me->drivers);
 	spin_unlock_irqrestore(&me->hlock, irq_flags);
+	mutex_init(&fl->pm_qos_mutex);
 	if (me->lowest_capacity_core_count)
 		fl->dev_pm_qos_req = kzalloc((me->lowest_capacity_core_count) *
 						sizeof(struct dev_pm_qos_request),
@@ -6458,7 +6516,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 		 * then add voting request for only one core of cluster id 0.
 		 */
 		for (cpu = 0; cpu < me->lowest_capacity_core_count; cpu++) {
-
+			mutex_lock(&fl->pm_qos_mutex);
 			if (!fl->qos_request) {
 				err = dev_pm_qos_add_request(
 						get_cpu_device(cpu),
@@ -6470,6 +6528,7 @@ static int fastrpc_internal_control(struct fastrpc_file *fl,
 						&fl->dev_pm_qos_req[cpu],
 						latency);
 			}
+			mutex_unlock(&fl->pm_qos_mutex);
 			/* PM QoS request APIs return 0 or 1 on success */
 			if (err < 0) {
 				ADSPRPC_WARN("QoS with lat %u failed for CPU %d, err %d, req %d\n",
@@ -7379,7 +7438,7 @@ static int fastrpc_cb_probe(struct device *dev)
 		sess->smmu.dev->dma_parms = devm_kzalloc(sess->smmu.dev,
 			sizeof(*sess->smmu.dev->dma_parms), GFP_KERNEL);
 
-	dma_set_max_seg_size(sess->smmu.dev, DMA_BIT_MASK(32));
+	dma_set_max_seg_size(sess->smmu.dev, (unsigned long long)DMA_BIT_MASK(32));
 	dma_set_seg_boundary(sess->smmu.dev, (unsigned long)DMA_BIT_MASK(64));
 
 	of_property_read_u32_array(dev->of_node, "qcom,iommu-dma-addr-pool",
@@ -7579,6 +7638,49 @@ bail:
 	return err;
 }
 
+/*
+ * fastrpc_cdsp_status_show - Updates the buffer with remote cdsp status
+ *                           by reading the fastrpc node.
+ * @dev : pointer to device node.
+ * @attr: pointer to device attribute.
+ * @buf : Output parameter to be updated with remote cdsp status.
+ * Return : bytes written to buffer.
+ */
+
+static ssize_t fastrpc_cdsp_status_show(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	struct fastrpc_apps *me = &gfa;
+
+	/*
+	 * Default remote DSP status: 0
+	 * driver possibly not probed yet or not the main device.
+	 */
+
+	if (!dev || !dev->driver ||
+		!of_device_is_compatible(dev->of_node, "qcom,msm-fastrpc-compute")) {
+		ADSPRPC_ERR("Driver not probed yet or not the main device\n");
+		return 0;
+	}
+
+	return scnprintf(buf, PAGE_SIZE, "%d",
+			me->fastrpc_cdsp_status);
+}
+
+/* Remote cdsp status attribute declaration as read only */
+static DEVICE_ATTR_RO(fastrpc_cdsp_status);
+
+/* Declaring attribute for remote dsp */
+static struct attribute *msm_remote_dsp_attrs[] = {
+	&dev_attr_fastrpc_cdsp_status.attr,
+	NULL
+};
+
+/* Defining remote dsp attributes in attributes group */
+static struct attribute_group msm_remote_dsp_attr_group = {
+	.attrs = msm_remote_dsp_attrs,
+};
+
 static int fastrpc_probe(struct platform_device *pdev)
 {
 	int err = 0;
@@ -7590,6 +7692,15 @@ static int fastrpc_probe(struct platform_device *pdev)
 
 	if (of_device_is_compatible(dev->of_node,
 					"qcom,msm-fastrpc-compute")) {
+
+		err = sysfs_create_group(&pdev->dev.kobj, &msm_remote_dsp_attr_group);
+		if (err) {
+			ADSPRPC_ERR(
+				"Initialization of sysfs create group failed with %d\n",
+				err);
+			goto bail;
+		}
+
 		init_secure_vmid_list(dev, "qcom,adsp-remoteheap-vmid",
 							&gcinfo[0].rhvm);
 		fastrpc_init_privileged_gids(dev, "qcom,fastrpc-gids",
@@ -7689,12 +7800,67 @@ static void fastrpc_deinit(void)
 	mutex_destroy(&me->mut_uid);
 }
 
+#ifdef CONFIG_HIBERNATION
+static bool hibernation;
+
+static int fastrpc_hibernation_notifier(struct notifier_block *nb,
+						unsigned long event, void *dummy)
+{
+	if (event == PM_HIBERNATION_PREPARE)
+		hibernation = true;
+	else if (event == PM_POST_HIBERNATION)
+		hibernation = false;
+
+	return NOTIFY_OK;
+}
+
+static struct notifier_block fastrpc_notif_block = {
+	.notifier_call = fastrpc_hibernation_notifier,
+};
+#endif
+
+#ifdef CONFIG_PM_SLEEP
+static int fastrpc_hibernation_suspend(struct device *dev)
+{
+	int err = 0;
+
+	if (of_device_is_compatible(dev->of_node,
+					"qcom,msm-fastrpc-compute")) {
+		err = fastrpc_mmap_remove_ssr(NULL, 0);
+		if (err)
+			ADSPRPC_WARN("failed to unmap remote heap (err %d)\n",
+					err);
+	}
+	return err;
+}
+
+static int fastrpc_restore(struct device *dev)
+{
+	struct fastrpc_apps *me = &gfa;
+	int cid;
+
+	pr_info("adsprpc: restore enter\n");
+	for (cid = 0; cid < NUM_CHANNELS; cid++)
+		me->channel[cid].in_hib = 1;
+	pr_info("adsprpc: restore exit\n");
+	return 0;
+}
+
+static const struct dev_pm_ops fastrpc_pm = {
+	.freeze = fastrpc_hibernation_suspend,
+	.restore = fastrpc_restore,
+};
+#endif
+
 static struct platform_driver fastrpc_driver = {
 	.probe = fastrpc_probe,
 	.driver = {
 		.name = "fastrpc",
 		.of_match_table = fastrpc_match_table,
 		.suppress_bind_attrs = true,
+#ifdef CONFIG_PM_SLEEP
+		.pm = &fastrpc_pm,
+#endif
 	},
 };
 
@@ -7999,6 +8165,7 @@ static int __init fastrpc_device_init(void)
 	}
 	memset(me, 0, sizeof(*me));
 	fastrpc_init(me);
+	fastrpc_get_cdsp_status(me);
 	me->dev = NULL;
 	me->legacy_remote_heap = false;
 	err = bus_register(&fastrpc_bus_type);
@@ -8059,6 +8226,7 @@ static int __init fastrpc_device_init(void)
 		me->jobid[i] = 1;
 		me->channel[i].dev = me->secure_dev;
 		me->channel[i].ssrcount = 0;
+		me->channel[i].in_hib = 0;
 		me->channel[i].prevssrcount = 0;
 		me->channel[i].subsystemstate = SUBSYSTEM_UP;
 		me->channel[i].ramdumpenabled = 0;
@@ -8107,6 +8275,11 @@ static int __init fastrpc_device_init(void)
 			__func__, err);
 		goto device_create_bail;
 	}
+#ifdef CONFIG_HIBERNATION
+	err = register_pm_notifier(&fastrpc_notif_block);
+	if (err)
+		goto device_create_bail;
+#endif
 	me->rpmsg_register = 1;
 
 	fastrpc_register_wakeup_source(me->non_secure_dev,

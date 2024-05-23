@@ -2,6 +2,7 @@
 /*
  * Copyright (c) 2012-2021, The Linux Foundation. All rights reserved.
  * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -533,6 +534,7 @@ struct dwc3_msm {
 	bool			use_pwr_event_for_wakeup;
 	bool			host_poweroff_in_pm_suspend;
 	bool			disable_host_ssphy_powerdown;
+	bool			hibernate_skip_thaw;
 	unsigned long		lpm_flags;
 	unsigned int		vbus_draw;
 #define MDWC3_SS_PHY_SUSPEND		BIT(0)
@@ -3206,7 +3208,6 @@ static void dwc3_dis_sleep_mode(struct dwc3_msm *mdwc)
 static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 {
 	struct dwc3 *dwc = NULL;
-	u32 val;
 
 	if (mdwc->dwc3)
 		dwc = platform_get_drvdata(mdwc->dwc3);
@@ -3214,15 +3215,6 @@ static void dwc3_msm_power_collapse_por(struct dwc3_msm *mdwc)
 	if (!mdwc->ip)
 		mdwc->ip = DWC3_GSNPS_ID(dwc3_msm_read_reg(mdwc->base, DWC3_GSNPSID));
 
-	/* Get initial P3 status and enable IN_P3 event */
-	if (mdwc->ip == DWC31_IP)
-		val = dwc3_msm_read_reg_field(mdwc->base,
-			DWC31_LINK_GDBGLTSSM,
-			DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	else
-		val = dwc3_msm_read_reg_field(mdwc->base,
-			DWC3_GDBGLTSSM, DWC3_GDBGLTSSM_LINKSTATE_MASK);
-	atomic_set(&mdwc->in_p3, val == DWC3_LINK_STATE_U3);
 	dwc3_msm_write_reg_field(mdwc->base, PWR_EVNT_IRQ_MASK_REG,
 				PWR_EVNT_POWERDOWN_IN_P3_MASK, 1);
 
@@ -4279,6 +4271,7 @@ static int dwc3_msm_id_notifier(struct notifier_block *nb,
 	return NOTIFY_DONE;
 }
 
+static void dwc3_override_vbus_status(struct dwc3_msm *mdwc, bool vbus_present);
 static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 	unsigned long event, void *ptr)
 {
@@ -4321,6 +4314,11 @@ static int dwc3_msm_vbus_notifier(struct notifier_block *nb,
 		 */
 		if (dwc && dwc->gadget && dwc->gadget->speed >= USB_SPEED_SUPER && !spoof)
 			return NOTIFY_DONE;
+
+		if (!spoof && mdwc->drd_state != DRD_STATE_UNDEFINED) {
+			dwc3_override_vbus_status(mdwc, !!event);
+			return NOTIFY_DONE;
+		}
 
 		mdwc->check_eud_state = true;
 	} else {
@@ -5219,6 +5217,8 @@ static int dwc3_msm_core_init(struct dwc3_msm *mdwc)
 		goto depopulate;
 
 	dwc3_msm_override_pm_ops(dwc->dev, mdwc->dwc3_pm_ops, false);
+	if (mdwc->hibernate_skip_thaw)
+		dev_pm_syscore_device(dwc->dev, true);
 
 	mdwc->xhci_pm_ops = kzalloc(sizeof(struct dev_pm_ops), GFP_ATOMIC);
 	if (!mdwc->xhci_pm_ops)
@@ -5615,6 +5615,9 @@ static int dwc3_msm_probe(struct platform_device *pdev)
 
 	mdwc->disable_host_ssphy_powerdown = of_property_read_bool(node,
 				"qcom,disable-host-ssphy-powerdown");
+
+	mdwc->hibernate_skip_thaw = of_property_read_bool(node,
+				"qcom,hibernate-skip-thaw");
 
 	mdwc->use_eusb2_phy = of_property_read_bool(node, "qcom,use-eusb2-phy");
 
@@ -6251,8 +6254,8 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		/*
 		 * Check udc->driver to find out if we are bound to udc or not.
 		 */
-		if ((mdwc->force_disconnect) && (dwc->gadget->udc->driver) &&
-			(!vdwc->softconnect)) {
+		if ((mdwc->force_disconnect) && (!vdwc->softconnect) &&
+			(dwc->gadget) && (dwc->gadget->udc->driver)) {
 			dbg_event(0xFF, "Force Pullup", 0);
 			usb_gadget_connect(dwc->gadget);
 		}
@@ -6283,7 +6286,7 @@ static int dwc3_otg_start_peripheral(struct dwc3_msm *mdwc, int on)
 		 * disable), and retry suspend again.
 		 */
 		ret = pm_runtime_put_sync(&mdwc->dwc3->dev);
-		if (ret < 0) {
+		if (!pm_runtime_suspended(&mdwc->dwc3->dev)) {
 			while (--timeout && dwc->connected)
 				msleep(20);
 			dbg_event(0xFF, "StopGdgt connected", dwc->connected);
