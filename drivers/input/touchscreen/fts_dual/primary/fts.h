@@ -26,6 +26,8 @@
 #define FTS_TS_DRV_VERSION	"6.0.3"
 #define FTS_TS_DRV_VER		0x06000003
 
+#define FTS_XIAOMI_TOUCHFEATURE
+
 #define MAX_FIFO_EVENT	100
 
 /* **** PANEL SPECIFICATION **** */
@@ -138,6 +140,11 @@ struct fts_ts_info {
 
 	struct delayed_work panel_notifier_register_work;
 	void *notifier_cookie;
+
+	struct class *fts_tp_class;
+	struct device *fts_touch_dev;
+
+	int gesture_enabled;
 };
 
 extern int fts_proc_init(void);
