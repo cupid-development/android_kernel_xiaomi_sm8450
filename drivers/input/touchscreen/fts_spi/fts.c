@@ -5652,6 +5652,10 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 		}
 	}
 
+	if (info->board->avdd_gpio) {
+		gpio_direction_output(info->board->avdd_gpio, 0);
+	}
+
 	if (info->avddold_reg) {
 		error = regulator_disable(info->avddold_reg);
 		if (error < 0) {
@@ -5683,6 +5687,10 @@ int fts_chip_powercycle(struct fts_ts_info *info)
 			logError(1, "%s %s: Failed to enable AVDD regulator\n",
 				 tag, __func__);
 		}
+	}
+
+	if (info->board->avdd_gpio) {
+		gpio_direction_output(info->board->avdd_gpio, 1);
 	}
 
 	mdelay(1);
@@ -7918,11 +7926,17 @@ static int fts_enable_reg(struct fts_ts_info *info, bool enable)
 		*/
 	}
 
+	if (info->board->avdd_gpio) {
+		gpio_direction_output(info->board->avdd_gpio, 1);
+	}
+
 	return OK;
 
 disable_pwr_reg:
 	if (info->avdd_reg)
 		regulator_disable(info->avdd_reg);
+	if (info->board->avdd_gpio)
+		gpio_direction_output(info->board->avdd_gpio, 0);
 
 disable_bus_reg:
 	if (info->vdd_reg)
@@ -8462,6 +8476,15 @@ static int parse_dt(struct device *dev, struct fts_hw_platform_data *bdata)
 	else {
 		bdata->vdd_reg_name = name;
 		logError(0, "%s bus_reg_name = %s\n", tag, name);
+	}
+
+	retval = of_get_named_gpio(np, "fts,avdd-gpio", 0);
+	if (retval < 0) {
+		logError(0,"%s can't find avdd-gpio[%d]\n", tag, retval);
+		bdata->avdd_gpio = 0;
+	} else {
+		logError(0,"%s get avdd-gpio[%d] from dt\n", tag, retval);
+		bdata->avdd_gpio = retval;
 	}
 
 	if (of_property_read_bool(np, "fts,reset-gpio-enable")) {
