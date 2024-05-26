@@ -203,6 +203,7 @@ struct fts_hw_platform_data {
 	int (*power)(bool on);
 	int irq_gpio;
 	int reset_gpio;
+	int avdd_gpio;
 	unsigned long irq_flags;
 	unsigned int x_max;
 	unsigned int y_max;
