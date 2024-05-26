@@ -1,4 +1,5 @@
 ifneq ($(KERNELRELEASE),)
+	ccflags-y += -I$(srctree)/drivers/misc/hwid/
 	obj-$(CONFIG_TOUCHSCREEN_GOODIX_BRL_9916R) += gt9916r.o
 gt9916r-y := \
 	goodix_brl_i2c.o \
