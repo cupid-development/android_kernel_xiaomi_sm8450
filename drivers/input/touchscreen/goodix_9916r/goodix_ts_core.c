@@ -30,6 +30,7 @@
 #endif
 
 #include "goodix_ts_core.h"
+#include "hwid.h"
 
 #define GOODIX_DEFAULT_CFG_NAME		"goodix_cfg_group.cfg"
 
@@ -3321,6 +3322,8 @@ static int __init goodix_ts_core_init(void)
 	int ret;
 	int gpio_a;
 	int gpio_b;
+	uint32_t hw_project;
+	hw_project = get_hw_version_platform();
 
 	gpio_direction_input(DISP_ID_DET);
 	gpio_a = gpio_get_value(DISP_ID_DET);
@@ -3328,7 +3331,18 @@ static int __init goodix_ts_core_init(void)
 	gpio_b = gpio_get_value(DISP_ID1_DET);
 	ts_info("gpio_a = %d, gpio_b:%d", gpio_a, gpio_b);
 
+	/* diting (L12) has two touch variants, check for goodix */
+	if (hw_project == HARDWARE_PROJECT_L12) {
+		if (!gpio_a && !gpio_b) {
+			ts_info("TP is goodix");
+		} else {
+			ts_info("TP is st 61y");
+			return 0;
+		}
+	}
+
 	ts_info("Core layer init:%s", GOODIX_DRIVER_VERSION);
+
 #ifdef CONFIG_TOUCHSCREEN_GOODIX_BRL_SPI
 	ret = goodix_spi_bus_init();
 #else
