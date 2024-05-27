@@ -43,6 +43,7 @@
 #include <linux/fb.h>
 #endif
 /*N17 code for HQ-291656 by gaoxue at 2023/5/9 end*/
+#include "../xiaomi/xiaomi_touch.h"
 
 #define GOODIX_CORE_DRIVER_NAME			"goodix_ts"
 #define GOODIX_PEN_DRIVER_NAME			"goodix_ts,pen"

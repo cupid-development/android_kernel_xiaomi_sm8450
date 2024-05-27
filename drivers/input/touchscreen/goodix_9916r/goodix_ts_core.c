@@ -47,9 +47,6 @@ struct goodix_ts_core *goodix_core_data;
 
 static int goodix_send_ic_config(struct goodix_ts_core *cd, int type);
 
-/* N17 code for HQ-296762 by jiangyue at 2023/6/2 start */
-#include "../xiaomi/xiaomi_touch.h"
-/* N17 code for HQ-296762 by jiangyue at 2023/6/2 end */
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 start */
 static void goodix_set_gesture_work(struct work_struct *work);
 static int goodix_get_charging_status(void);
@@ -2852,10 +2849,14 @@ static void goodix_set_gesture_work(struct work_struct *work)
 	ts_info("aod is 0x%x", core_data->aod_status);
 	ts_info("fod is 0x%x", core_data->fod_status);
 	ts_info("enable is 0x%x", core_data->gesture_type);
-	if (core_data->aod_status || core_data->fod_status)
+	if (core_data->aod_status || core_data->fod_status) {
 		core_data->gesture_type |= GESTURE_SINGLE_TAP;
-	else
+		core_data->gesture_type |= GESTURE_FOD_PRESS;
+	} else {
 		core_data->gesture_type &= ~GESTURE_SINGLE_TAP;
+		core_data->gesture_type &= ~GESTURE_FOD_PRESS;
+	}
+
 	ts_info("set gesture_enabled:%d", core_data->gesture_type);
 
 	if(core_data->gesture_type != 0)
