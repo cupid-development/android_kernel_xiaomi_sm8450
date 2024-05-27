@@ -331,6 +331,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *cd,
 			input_report_abs(cd->input_dev, ABS_MT_POSITION_Y, fody);
 			input_report_abs(cd->input_dev, ABS_MT_WIDTH_MAJOR, overlay_area);
 			input_sync(cd->input_dev);
+			update_fod_press_status(1);
 		} else {
 			ts_debug("not enable FOD-DOWN");
 		}
@@ -346,6 +347,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *cd,
 			input_mt_report_slot_state(cd->input_dev,
 					MT_TOOL_FINGER, 0);
 			input_sync(cd->input_dev);
+			update_fod_press_status(0);
 		} else {
 			ts_debug("not enable FOD-UP");
 		}
