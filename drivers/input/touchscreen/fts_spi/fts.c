@@ -3882,7 +3882,7 @@ static u8 fts_need_enter_lp_mode(void)
 
 	if (fts_info->aod_status && !fts_info->nonui_status)
 		tmp_value |= FOD_SINGLETAP_EVENT;
-	if (fts_info->fod_status == 1 || fts_info->fod_status == 2) {
+	if (fts_fingerprint_is_enable()) {
 		tmp_value |= FOD_LONGPRESS_EVENT;
 		if (fts_info->fod_icon_status && !fts_info->nonui_status)
 			tmp_value |= FOD_SINGLETAP_EVENT;
@@ -6738,8 +6738,7 @@ static int fts_set_fod_status(int value)
 	}
 	fts_info->fod_status = value;
 
-	if (!fts_info->fod_pressed &&
-	    (fts_info->fod_status == 1 || fts_info->fod_status == 2)) {
+	if (!fts_info->fod_pressed && fts_fingerprint_is_enable()) {
 		mutex_lock(&fts_info->fod_mutex);
 		if (fts_info->gesture_enabled == 1)
 			gesture_cmd[2] = 0x20;
