@@ -3881,6 +3881,9 @@ static u8 fts_need_enter_lp_mode(void)
 	if (fts_info->aod_status)
 		tmp_value |= FOD_SINGLETAP_EVENT;
 
+	if (fts_info->fod_longpress_gesture_enabled)
+		tmp_value |= FOD_LONGPRESS_EVENT;
+
 	return tmp_value;
 }
 
@@ -6748,6 +6751,17 @@ static int fts_set_cur_value(int mode, int value)
 		fts_info->fod_status = value;
 		return 0;
 	}
+
+	if (mode == Touch_Fod_Longpress_Gesture && fts_info && value >= 0) {
+		xiaomi_touch_interfaces.touch_mode[mode][SET_CUR_VALUE] = value;
+		xiaomi_touch_interfaces.touch_mode[mode][GET_CUR_VALUE] = value;
+
+		fts_info->fod_longpress_gesture_enabled = value;
+		schedule_work(&fts_info->switch_mode_work);
+
+		return 0;
+	}
+
 	if (mode == Touch_Aod_Enable && fts_info && value >= 0)
 		return fts_set_aod_status(value);
 	if (mode == Touch_Doubletap_Mode && fts_info && value >= 0) {

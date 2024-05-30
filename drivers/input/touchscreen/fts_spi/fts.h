@@ -417,6 +417,7 @@ struct fts_ts_info {
 	struct completion tp_reset_completion;
 	atomic_t system_is_resetting;
 	int fod_status;
+	bool fod_longpress_gesture_enabled;
 	unsigned int fod_overlap;
 	unsigned long fod_id;
 	unsigned long fod_x;
