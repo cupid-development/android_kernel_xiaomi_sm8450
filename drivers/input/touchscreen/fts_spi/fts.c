@@ -5759,12 +5759,12 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 		logError(0, "%s %s: Screen OFF... \n", tag, __func__);
 		gesture_type = fts_need_enter_lp_mode();
 		gesture_cmd[5] = gesture_type;
-		if (gesture_type) {
+		if (gesture_type || info->gesture_enabled == 1) {
 			if (info->gesture_enabled == 1)
 				gesture_cmd[2] = 0x20;
 			logError(
 				1,
-				"%s %s: Sense OFF by FOD, gesture type:%d, doubletap:%d\n",
+				"%s %s: entering low power gesture mode with gesture type: %d, doubletap: %d\n",
 				tag, __func__, gesture_type,
 				info->gesture_enabled);
 			res = fts_write_dma_safe(gesture_cmd,
@@ -5778,26 +5778,9 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 			mdelay(WAIT_AFTER_LOW_POWER);
 			res |= ret;
 		} else {
-			if (info->gesture_enabled == 1) {
-				logError(1, "%s %s: enter doubletap mode! \n",
-					 tag, __func__);
-				res = fts_write_dma_safe(
-					doubletap_cmd,
-					ARRAY_SIZE(doubletap_cmd));
-				if (res < OK)
-					logError(
-						1,
-						"%s %s: enter doubletap failed! ERROR %08X recovery in senseOff...\n",
-						tag, __func__, res);
-				ret = setScanMode(SCAN_MODE_LOW_POWER, 0);
-				mdelay(WAIT_AFTER_LOW_POWER);
-				res |= ret;
-			} else {
-				logError(1, "%s %s: Sense OFF! \n", tag,
-					 __func__);
-				ret = setScanMode(SCAN_MODE_ACTIVE, 0x00);
-				res |= ret;
-			}
+			logError(1, "%s %s: Sense OFF! \n", tag, __func__);
+			ret = setScanMode(SCAN_MODE_ACTIVE, 0x00);
+			res |= ret;
 		}
 		setSystemResetedDown(0);
 		break;
