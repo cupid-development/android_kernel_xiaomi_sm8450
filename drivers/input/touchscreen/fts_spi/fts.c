@@ -3866,10 +3866,8 @@ static bool fts_fingerprint_is_enable(void)
 #endif
 static u8 fts_need_enter_lp_mode(void)
 {
-	/* fod status = -1 as default value, means fingerprint is not enabled*
- * fod_status = 100 as all fingers in the system is deleted
+/*
  * aod_status != 0 means single tap in aod is supported
- * fod_icon_status = 0 means fod icon is closed, so single tap do not need to be supported
  * nonui_status = 1 means phone maybe in pocket,disable single tap to save power
  * return value:
  * bit0:1 fod event
@@ -3880,13 +3878,9 @@ static u8 fts_need_enter_lp_mode(void)
 	if (fts_info->nonui_status == 2)
 		return tmp_value;
 
-	if (fts_info->aod_status && !fts_info->nonui_status)
+	if (fts_info->aod_status)
 		tmp_value |= FOD_SINGLETAP_EVENT;
-	if (fts_fingerprint_is_enable()) {
-		tmp_value |= FOD_LONGPRESS_EVENT;
-		if (fts_info->fod_icon_status && !fts_info->nonui_status)
-			tmp_value |= FOD_SINGLETAP_EVENT;
-	}
+
 	return tmp_value;
 }
 
@@ -5740,14 +5734,11 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 	int res = OK;
 	int ret = OK;
 	u8 settings[4] = { 0 };
-#ifdef FTS_FOD_AREA_REPORT
 	u8 gesture_type = 0x00;
 	/* longpress_cmd: A2 03 00 00 00 01
 	 * doubletap cmd: A2 03 20 00 00 00
 	 * singletap cmd: A2 03 00 00 00 02*/
-	u8 gesture_cmd[6] = { 0xA2, 0x03, 0x00, 0x00, 0x00, 0x03 };
-#endif
-	u8 doubletap_cmd[6] = { 0xA2, 0x03, 0x20, 0x00, 0x00, 0x00 };
+	u8 gesture_cmd[6] = { 0xA2, 0x03, 0x00, 0x00, 0x00, 0x00 };
 
 #ifdef FTS_FOD_AREA_REPORT
 	mutex_lock(&info->fod_mutex);
@@ -6707,59 +6698,9 @@ static void fts_grip_mode_work(struct work_struct *work)
 	pm_relax(fts_info->dev);
 }
 
-static int fts_set_fod_status(int value)
-{
-	int res = 0;
-	u8 gesture_cmd[6] = { 0xA2, 0x03, 0x00, 0x00, 0x00, 0x03 };
-
-	pm_stay_awake(fts_info->dev);
-
-	if (fts_info->fod_pressed && fts_info->fod_status == value) {
-		logError(1, "%s %s has already set and process:%d\n", tag,
-			 __func__, value);
-		return res;
-	}
-	fts_info->fod_status = value;
-
-	if (!fts_info->fod_pressed && fts_fingerprint_is_enable()) {
-		mutex_lock(&fts_info->fod_mutex);
-		if (fts_info->gesture_enabled == 1)
-			gesture_cmd[2] = 0x20;
-
-		if (!fts_info->resume_bit) {
-			setScanMode(SCAN_MODE_LOW_POWER, 0);
-			mdelay(WAIT_AFTER_LOW_POWER);
-			fts_enableInterrupt();
-		}
-
-		res = fts_write_dma_safe(gesture_cmd, ARRAY_SIZE(gesture_cmd));
-		if (res < OK)
-			logError(
-				1,
-				"%s %s: enter gesture and longpress failed! ERROR %08X recovery in senseOff...\n",
-				tag, __func__, res);
-		else
-			logError(
-				1,
-				"%s %s send gesture and longpress cmd success\n",
-				tag, __func__);
-
-		msleep(12);
-		mutex_unlock(&fts_info->fod_mutex);
-	}
-	pm_relax(fts_info->dev);
-	return res;
-}
-
 static int fts_set_aod_status(int value)
 {
 	fts_info->aod_status = value;
-	return 0;
-}
-
-static int fts_set_fod_icon_status(int value)
-{
-	fts_info->fod_icon_status = value;
 	return 0;
 }
 
@@ -6803,7 +6744,9 @@ static int fts_set_cur_value(int mode, int value)
 	if (mode == Touch_Fod_Enable && fts_info && value >= 0) {
 		xiaomi_touch_interfaces.touch_mode[mode][SET_CUR_VALUE] = value;
 		xiaomi_touch_interfaces.touch_mode[mode][GET_CUR_VALUE] = value;
-		return fts_set_fod_status(value);
+
+		fts_info->fod_status = value;
+		return 0;
 	}
 	if (mode == Touch_Aod_Enable && fts_info && value >= 0)
 		return fts_set_aod_status(value);
@@ -6812,8 +6755,6 @@ static int fts_set_cur_value(int mode, int value)
 		schedule_work(&fts_info->switch_mode_work);
 		return 0;
 	}
-	if (mode == Touch_FodIcon_Enable && fts_info && value >= 0)
-		return fts_set_fod_icon_status(value);
 
 	if (mode == Touch_Nonui_Mode && fts_info && value >= 0) {
 		fts_info->nonui_status = value;
@@ -9606,7 +9547,6 @@ static int fts_probe(struct spi_device *client)
 	dev_set_drvdata(info->fts_touch_dev, info);
 #ifdef FTS_FOD_AREA_REPORT
 	info->fod_status = -1;
-	info->fod_icon_status = 1;
 	error = sysfs_create_file(&info->fts_touch_dev->kobj,
 				  &dev_attr_fod_test.attr);
 	if (error) {
