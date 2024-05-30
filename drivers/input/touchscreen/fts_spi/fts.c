@@ -3867,7 +3867,6 @@ static bool fts_fingerprint_is_enable(void)
 static u8 fts_need_enter_lp_mode(void)
 {
 /*
- * aod_status != 0 means single tap in aod is supported
  * nonui_status = 1 means phone maybe in pocket,disable single tap to save power
  * return value:
  * bit0:1 fod event
@@ -3878,8 +3877,8 @@ static u8 fts_need_enter_lp_mode(void)
 	if (fts_info->nonui_status == 2)
 		return tmp_value;
 
-	if (fts_info->aod_status)
-		tmp_value |= FOD_SINGLETAP_EVENT;
+	if (fts_info->singletap_gesture_enabled)
+		tmp_value |= SINGLETAP_EVENT;
 
 	if (fts_info->fod_longpress_gesture_enabled)
 		tmp_value |= FOD_LONGPRESS_EVENT;
@@ -6701,12 +6700,6 @@ static void fts_grip_mode_work(struct work_struct *work)
 	pm_relax(fts_info->dev);
 }
 
-static int fts_set_aod_status(int value)
-{
-	fts_info->aod_status = value;
-	return 0;
-}
-
 #ifdef FTS_POWER_SAVE_MODE
 static int fts_change_enter_doze_time(int value)
 {
@@ -6762,8 +6755,16 @@ static int fts_set_cur_value(int mode, int value)
 		return 0;
 	}
 
-	if (mode == Touch_Aod_Enable && fts_info && value >= 0)
-		return fts_set_aod_status(value);
+	if (mode == Touch_Singletap_Gesture && fts_info && value >= 0) {
+		xiaomi_touch_interfaces.touch_mode[mode][SET_CUR_VALUE] = value;
+		xiaomi_touch_interfaces.touch_mode[mode][GET_CUR_VALUE] = value;
+
+		fts_info->singletap_gesture_enabled = value;
+		schedule_work(&fts_info->switch_mode_work);
+
+		return 0;
+	}
+
 	if (mode == Touch_Doubletap_Mode && fts_info && value >= 0) {
 		fts_info->gesture_enabled = value;
 		schedule_work(&fts_info->switch_mode_work);
