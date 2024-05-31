@@ -4380,10 +4380,6 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 			goto gesture_done;
 		} else if (event[2] == GEST_ID_SINGTAP) {
 			logError(1, "%s %s: single tap ! \n", tag, __func__);
-			input_report_key(info->input_dev, KEY_GOTO, 1);
-			input_sync(info->input_dev);
-			input_report_key(info->input_dev, KEY_GOTO, 0);
-			input_sync(info->input_dev);
 			notify_gesture_single_tap();
 			goto gesture_done;
 		}
@@ -4392,10 +4388,9 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 		case GEST_ID_DBLTAP:
 			if (!info->gesture_enabled)
 				goto gesture_done;
-			value = KEY_WAKEUP;
 			logError(1, "%s %s: double tap ! \n", tag, __func__);
-			needCoords = 0;
-			break;
+			notify_gesture_double_tap();
+			goto gesture_done;
 
 		case GEST_ID_AT:
 			value = KEY_WWW;
@@ -6491,8 +6486,12 @@ static int fts_set_cur_value(int mode, int value)
 	}
 
 	if (mode == Touch_Doubletap_Mode && fts_info && value >= 0) {
+		xiaomi_touch_interfaces.touch_mode[mode][SET_CUR_VALUE] = value;
+		xiaomi_touch_interfaces.touch_mode[mode][GET_CUR_VALUE] = value;
+
 		fts_info->gesture_enabled = value;
 		schedule_work(&fts_info->switch_mode_work);
+
 		return 0;
 	}
 
