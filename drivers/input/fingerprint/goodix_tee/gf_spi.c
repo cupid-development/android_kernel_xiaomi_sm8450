@@ -99,6 +99,48 @@ struct gf_key_map maps[] = {
 };
 #endif
 
+static void disable_regulators(struct gf_supplies *supplies)
+{
+	if (!IS_ERR_OR_NULL(supplies->vdda))
+		regulator_disable(supplies->vdda);
+	if (!IS_ERR_OR_NULL(supplies->vddb))
+		regulator_disable(supplies->vddb);
+}
+
+static int enable_regulators(struct device *dev, struct gf_supplies *supplies)
+{
+	int rc = 0;
+
+	supplies->vdda = devm_regulator_get_optional(dev, "vdda");
+	if (IS_ERR(supplies->vdda)) {
+		rc = PTR_ERR(supplies->vdda);
+		return rc;
+	}
+
+	supplies->vddb = devm_regulator_get_optional(dev, "vddb");
+	if (IS_ERR(supplies->vddb)) {
+		rc = PTR_ERR(supplies->vddb);
+		if (rc == -ENODEV)
+			supplies->vddb = NULL;
+		else
+			return rc;
+	}
+
+	rc = regulator_set_load(supplies->vdda, 200000);
+	if (rc) return rc;
+	rc = regulator_enable(supplies->vdda);
+	if (rc) return rc;
+
+	if (supplies->vddb) {
+		rc = regulator_set_load(supplies->vddb, 200000);
+		if (rc) return rc;
+		rc = regulator_enable(supplies->vddb);
+		if (rc) return rc;
+	}
+
+	return rc;
+}
+
 static void gf_enable_irq(struct gf_dev *gf_dev)
 {
 	if (gf_dev->irq_enabled) {
@@ -601,35 +643,6 @@ static int gf_open(struct inode *inode, struct file *filp)
 			break;
 		}
 	}
-#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
-	pr_info("Try to enable fp_vdd_vreg\n");
-	gf_dev->vreg = regulator_get(&gf_dev->spi->dev, "fp_vdd_vreg");
-
-	if (gf_dev->vreg == NULL) {
-		dev_err(&gf_dev->spi->dev,
-			"fp_vdd_vreg regulator get failed!\n");
-		mutex_unlock(&device_list_lock);
-		return -EPERM;
-	}
-
-	if (regulator_is_enabled(gf_dev->vreg)) {
-		pr_info("fp_vdd_vreg is already enabled!\n");
-	} else {
-		rc = regulator_enable(gf_dev->vreg);
-
-		if (rc) {
-			dev_err(&gf_dev->spi->dev,
-				"error enabling fp_vdd_vreg!\n");
-			regulator_put(gf_dev->vreg);
-			gf_dev->vreg = NULL;
-			mutex_unlock(&device_list_lock);
-			return -EPERM;
-		}
-	}
-
-	pr_info("fp_vdd_vreg is enabled %d!\n",
-		regulator_get_voltage(gf_dev->vreg));
-#endif
 
 	if (status == 0) {
 #ifdef GF_PW_CTL
@@ -716,19 +729,6 @@ static int gf_release(struct inode *inode, struct file *filp)
 	mutex_lock(&device_list_lock);
 	gf_dev = filp->private_data;
 	filp->private_data = NULL;
-	/*
-	 *Disable fp_vdd_vreg regulator
-	 */
-#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
-	pr_info("disable fp_vdd_vreg!\n");
-
-	if (regulator_is_enabled(gf_dev->vreg)) {
-		//regulator_disable(gf_dev->vreg);
-		//regulator_put(gf_dev->vreg);
-		//gf_dev->vreg = NULL;
-	}
-
-#endif
 	gf_dev->users--;
 
 	if (!gf_dev->users) {
@@ -929,6 +929,11 @@ static int gf_probe(struct platform_device *pdev)
 		}
 	}
 
+	status = enable_regulators(&gf_dev->spi->dev, &gf_dev->supplies);
+	if (status) {
+		goto error_regulator;
+	}
+
 #ifdef AP_CONTROL_CLK
 	pr_debug("Get the clk resource.\n");
 
@@ -956,6 +961,9 @@ gfspi_probe_clk_enable_failed:
 	gfspi_ioctl_clk_uninit(gf_dev);
 gfspi_probe_clk_init_failed:
 #endif
+error_regulator:
+	disable_regulators(&gf_dev->supplies);
+
 	input_unregister_device(gf_dev->input);
 error_input:
 
@@ -987,6 +995,9 @@ static int gf_remove(struct platform_device *pdev)
 #endif
 {
 	struct gf_dev *gf_dev = &gf;
+
+	disable_regulators(&gf_dev->supplies);
+
 	wakeup_source_unregister(fp_wakelock);
 	fp_wakelock = NULL;
 	/* make sure ops on existing fds can abort cleanly */
