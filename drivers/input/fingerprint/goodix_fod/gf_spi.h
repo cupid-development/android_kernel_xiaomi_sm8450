@@ -78,6 +78,13 @@ struct gf_ioc_chip_info {
 	unsigned char reserved[5];
 };
 
+struct gf_supplies {
+	struct regulator *l1c;
+	struct regulator *l3c;
+	struct regulator *l9c;
+	struct regulator *l11c;
+};
+
 #define GF_IOC_MAGIC 'g' /*define magic number */
 #define GF_IOC_INIT _IOR(GF_IOC_MAGIC, 0, uint8_t)
 #define GF_IOC_EXIT _IO(GF_IOC_MAGIC, 1)
