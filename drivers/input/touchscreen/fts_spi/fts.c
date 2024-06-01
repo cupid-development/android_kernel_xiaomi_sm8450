@@ -6512,6 +6512,13 @@ static int fts_set_cur_value(int mode, int value)
 		return 0;
 	}
 
+	if (mode == THP_FOD_DOWNUP_CTL && fts_info && value >= 0) {
+		fts_info->fod_pressed = value;
+		update_fod_press_status(value);
+
+		return 0;
+	}
+
 	/*
 	if (mode == THP_SELF_CAP_SCAN && fts_info && value >= 0) {
 		if (fts_info->enable_touch_raw)
