@@ -78,6 +78,13 @@ struct gf_ioc_chip_info {
 	unsigned char reserved[5];
 };
 
+struct gf_supplies {
+	struct regulator *l1c;
+	struct regulator *l3c;
+	struct regulator *l9c;
+	struct regulator *l11c;
+};
+
 #define GF_IOC_MAGIC 'g' /*define magic number */
 #define GF_IOC_INIT _IOR(GF_IOC_MAGIC, 0, uint8_t)
 #define GF_IOC_EXIT _IO(GF_IOC_MAGIC, 1)
@@ -142,9 +149,6 @@ struct gf_dev {
 	char fb_black;
 	char wait_finger_down;
 	struct work_struct work;
-#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
-	struct regulator *vreg;
-#endif
 	struct pinctrl *pinctrl;
 	struct pinctrl_state *gf_default_state;
 };
