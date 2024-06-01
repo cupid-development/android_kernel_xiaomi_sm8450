@@ -72,53 +72,90 @@
 
 #define N_SPI_MINORS 32 /* ... up to 256 */
 
-#define MI_FP_3V
-static struct regulator *p_3v0_vreg = NULL;
-static int disable_regulator_3V0(struct regulator *vreg);
-static int enable_regulator_3V0(struct device *dev, struct regulator **pp_vreg);
+static struct gf_supplies *supplies = NULL;
+static void disable_regulators(void);
+static int enable_regulators(struct device *dev);
 
-static int disable_regulator_3V0(struct regulator *vreg)
+static void disable_regulators(void)
 {
-	devm_regulator_put(vreg);
-	vreg = NULL;
-	return 0;
+	if (supplies->l11c)
+		regulator_disable(supplies->l11c);
+	if (supplies->l9c)
+		regulator_disable(supplies->l9c);
+	if (supplies->l1c)
+		regulator_disable(supplies->l1c);
+	if (supplies->l3c)
+		regulator_disable(supplies->l3c);
+
+	supplies = NULL;
 }
 
-static int enable_regulator_3V0(struct device *dev, struct regulator **pp_vreg)
+static int enable_regulators(struct device *dev)
 {
 	int rc = 0;
-	struct regulator *vreg;
-	// vreg = devm_regulator_get(dev, "pm8350c_l11");
-	vreg = devm_regulator_get(dev, "l11c_vdd");
-	if (IS_ERR(vreg)) {
-		dev_err(dev, "fp %s: no of vreg found\n", __func__);
-		return PTR_ERR(vreg);
+
+	supplies = devm_kzalloc(dev, sizeof(*supplies), GFP_KERNEL);
+
+	supplies->l3c = devm_regulator_get_optional(dev, "l3c_vdd");
+	if (IS_ERR(supplies->l3c)) {
+		rc = PTR_ERR(supplies->l3c);
+		if (rc == -ENODEV)
+			supplies->l3c = NULL;
+		else
+			return rc;
+	}
+
+	supplies->l1c = devm_regulator_get_optional(dev, "l1c_vdd");
+	if (IS_ERR(supplies->l1c)) {
+		rc = PTR_ERR(supplies->l1c);
+		if (rc == -ENODEV)
+			supplies->l1c = NULL;
+		else
+			return rc;
+	}
+
+	supplies->l9c = devm_regulator_get_optional(dev, "l9c_vdd");
+	if (IS_ERR(supplies->l9c)) {
+		rc = PTR_ERR(supplies->l9c);
+		if (rc == -ENODEV)
+			supplies->l9c = NULL;
+		else
+			return rc;
+	}
+
+	supplies->l11c = devm_regulator_get_optional(dev, "l11c_vdd");
+	if (IS_ERR(supplies->l11c)) {
+		rc = PTR_ERR(supplies->l11c);
+		if (rc == -ENODEV)
+			supplies->l11c = NULL;
+		else
+			return rc;
+	}
+
+	if (supplies->l11c) {
+		rc = regulator_set_load(supplies->l11c, 200000);
+		if (rc) return rc;
+		rc = regulator_enable(supplies->l11c);
+		if (rc) return rc;
+	} else if (supplies->l9c) {
+		rc = regulator_set_load(supplies->l9c, 200000);
+		if (rc) return rc;
+		rc = regulator_enable(supplies->l9c);
+		if (rc) return rc;
+	} else if (supplies->l1c && supplies->l3c) {
+		rc = regulator_set_load(supplies->l1c, 200000);
+		if (rc) return rc;
+		rc = regulator_enable(supplies->l1c);
+		if (rc) return rc;
+		rc = regulator_set_load(supplies->l3c, 200000);
+		if (rc) return rc;
+		rc = regulator_enable(supplies->l3c);
+		if (rc) return rc;
 	} else {
-		dev_err(dev, "fp %s: of vreg successful found\n", __func__);
+		dev_err(dev, "fp %s: no supplies found\n", __func__);
+		return -ENODEV;
 	}
 
-/*Skip voltage set as it has been set in dts*/
-#if 0
-	rc = regulator_set_voltage(vreg, 3000000, 3000000);
-
-	if (rc) {
-		return rc;
-	}
-#endif
-
-	rc = regulator_set_load(vreg, 200000);
-
-	if (rc) {
-		return rc;
-	}
-
-	rc = regulator_enable(vreg);
-
-	if (rc) {
-		return rc;
-	}
-
-	*pp_vreg = vreg;
 	return rc;
 }
 
@@ -977,7 +1014,7 @@ static int gf_probe(struct platform_device *pdev)
 			goto error_input;
 		}
 	}
-	status = enable_regulator_3V0(&gf_dev->spi->dev, &p_3v0_vreg);
+	status = enable_regulators(&gf_dev->spi->dev);
 	if (status) {
 		goto error_regulator;
 	}
@@ -1018,7 +1055,7 @@ gfspi_probe_clk_enable_failed:
 gfspi_probe_clk_init_failed:
 #endif
 error_regulator:
-	disable_regulator_3V0(p_3v0_vreg);
+	disable_regulators();
 
 	input_unregister_device(gf_dev->input);
 error_input:
@@ -1052,7 +1089,7 @@ static int gf_remove(struct platform_device *pdev)
 {
 	struct gf_dev *gf_dev = &gf;
 
-	disable_regulator_3V0(p_3v0_vreg);
+	disable_regulators();
 	/*wakeup_source_destroy(fp_wakelock);*/
 	wakeup_source_unregister(fp_wakelock);
 	fp_wakelock = NULL;
