@@ -1661,7 +1661,8 @@ static ssize_t gesture_single_tap_value_show(struct device *dev,
 }
 
 static ssize_t gesture_single_tap_enabled_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+					       struct device_attribute *attr,
+					       char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 
@@ -1675,12 +1676,13 @@ static ssize_t gesture_single_tap_enabled_show(struct device *dev,
 		return -ENOMEM;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Singletap_Gesture, GET_CUR_VALUE));
+			touch_data->getModeValue(Touch_Singletap_Gesture,
+						 GET_CUR_VALUE));
 }
 
 static ssize_t gesture_single_tap_enabled_store(struct device *dev,
-					 struct device_attribute *attr,
-					 const char *buf, size_t count)
+						struct device_attribute *attr,
+						const char *buf, size_t count)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 	unsigned int input;
@@ -1719,7 +1721,8 @@ static ssize_t gesture_double_tap_value_show(struct device *dev,
 }
 
 static ssize_t gesture_double_tap_enabled_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+					       struct device_attribute *attr,
+					       char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 
@@ -1733,12 +1736,13 @@ static ssize_t gesture_double_tap_enabled_show(struct device *dev,
 		return -ENOMEM;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Doubletap_Mode, GET_CUR_VALUE));
+			touch_data->getModeValue(Touch_Doubletap_Mode,
+						 GET_CUR_VALUE));
 }
 
 static ssize_t gesture_double_tap_enabled_store(struct device *dev,
-					 struct device_attribute *attr,
-					 const char *buf, size_t count)
+						struct device_attribute *attr,
+						const char *buf, size_t count)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 	unsigned int input;
@@ -1768,7 +1772,8 @@ static ssize_t fod_press_status_show(struct device *dev,
 }
 
 static ssize_t fod_longpress_gesture_enabled_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
+						  struct device_attribute *attr,
+						  char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 
@@ -1782,12 +1787,14 @@ static ssize_t fod_longpress_gesture_enabled_show(struct device *dev,
 		return -ENOMEM;
 
 	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Fod_Longpress_Gesture, GET_CUR_VALUE));
+			touch_data->getModeValue(Touch_Fod_Longpress_Gesture,
+						 GET_CUR_VALUE));
 }
 
-static ssize_t fod_longpress_gesture_enabled_store(struct device *dev,
-					 struct device_attribute *attr,
-					 const char *buf, size_t count)
+static ssize_t
+fod_longpress_gesture_enabled_store(struct device *dev,
+				    struct device_attribute *attr,
+				    const char *buf, size_t count)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
 	unsigned int input;
@@ -1807,7 +1814,6 @@ static ssize_t fod_longpress_gesture_enabled_store(struct device *dev,
 
 	return count;
 }
-
 
 static ssize_t resolution_factor_show(struct device *dev,
 				      struct device_attribute *attr, char *buf)
