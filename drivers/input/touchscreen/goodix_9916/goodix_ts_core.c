@@ -3367,15 +3367,15 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		x = (core_data->nonui_status == 0) &&
 		    (core_data->aod_status != 0);
 		if (core_data->double_wakeup) {
-			x |= 2;
+			x |= DOUBLE_TAP_EN;
 		}
 		tmp = x;
 		if (core_data->fod_status < 4) {
-			tmp = x | 4;
+			tmp = x | FOD_EN;
 			if (core_data->fod_icon_status) {
-				tmp = x | 5;
+				tmp = x | SINGLE_TAP_EN | FOD_EN;
 				if (core_data->nonui_status != 0) {
-					tmp = x | 4;
+					tmp = x | FOD_EN;
 				}
 			}
 		}
