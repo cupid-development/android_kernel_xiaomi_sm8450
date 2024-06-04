@@ -3370,6 +3370,10 @@ static void goodix_set_gesture_work(struct work_struct *work)
 			x |= DOUBLE_TAP_EN;
 		}
 		tmp = x;
+
+		if (core_data->fod_longpress_gesture_enabled) {
+			tmp |= FOD_EN;
+		}
 	}
 
 	if (core_data->gesture_enabled != tmp) {
@@ -3533,6 +3537,19 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 			   &goodix_core_data->gesture_work);
 		return 0;
 	}
+
+	if (gtp_mode == Touch_Fod_Longpress_Gesture && goodix_core_data &&
+	    gtp_value >= 0) {
+		xiaomi_touch_interfaces.touch_mode[gtp_mode][SET_CUR_VALUE] = gtp_value;
+		xiaomi_touch_interfaces.touch_mode[gtp_mode][GET_CUR_VALUE] = gtp_value;
+
+		goodix_core_data->fod_longpress_gesture_enabled = gtp_value;
+		queue_work(goodix_core_data->gesture_wq,
+			   &goodix_core_data->gesture_work);
+
+		return 0;
+	}
+
 	if (gtp_mode == Touch_FodIcon_Enable && goodix_core_data &&
 	    gtp_value >= 0) {
 		goodix_core_data->fod_icon_status = gtp_value;
