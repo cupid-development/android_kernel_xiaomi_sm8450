@@ -1115,38 +1115,6 @@ static ssize_t goodix_ts_double_tap_store(struct device *dev,
 	return count;
 }
 
-/* aod gesture show */
-static ssize_t goodix_ts_aod_show(struct device *dev,
-				  struct device_attribute *attr, char *buf)
-{
-	int r = 0;
-
-	r = snprintf(buf, PAGE_SIZE, "state:%s\n",
-		     goodix_core_data->aod_status ? "enabled" : "disabled");
-
-	return r;
-}
-
-/* aod gesture_store */
-static ssize_t goodix_ts_aod_store(struct device *dev,
-				   struct device_attribute *attr,
-				   const char *buf, size_t count)
-{
-	if (!buf || count <= 0)
-		return -EINVAL;
-
-	if (buf[0] != '0') {
-		goodix_core_data->aod_status = 1;
-		queue_work(goodix_core_data->gesture_wq,
-			   &goodix_core_data->gesture_work);
-	} else {
-		goodix_core_data->aod_status = 0;
-		queue_work(goodix_core_data->gesture_wq,
-			   &goodix_core_data->gesture_work);
-	}
-	return count;
-}
-
 /* fod gesture show */
 static ssize_t goodix_ts_fod_show(struct device *dev,
 				  struct device_attribute *attr, char *buf)
@@ -1249,7 +1217,6 @@ static DEVICE_ATTR(debug_log, 0664, goodix_ts_debug_log_show,
 		   goodix_ts_debug_log_store);
 static DEVICE_ATTR(double_tap_enable, 0664, goodix_ts_double_tap_show,
 		   goodix_ts_double_tap_store);
-static DEVICE_ATTR(aod_enable, 0664, goodix_ts_aod_show, goodix_ts_aod_store);
 static DEVICE_ATTR(switch_report_rate, 0664, goodix_report_rate_show,
 		   goodix_report_rate_store);
 static DEVICE_ATTR(fod_enable, 0664, goodix_ts_fod_show, goodix_ts_fod_store);
@@ -1267,7 +1234,6 @@ static struct attribute *sysfs_attrs[] = {
 	&dev_attr_esd_info.attr,
 	&dev_attr_debug_log.attr,
 	&dev_attr_double_tap_enable.attr,
-	&dev_attr_aod_enable.attr,
 	&dev_attr_switch_report_rate.attr,
 	&dev_attr_fod_enable.attr,
 	&dev_attr_scan_freq_index.attr,
@@ -3353,7 +3319,6 @@ static void goodix_set_gesture_work(struct work_struct *work)
 	}
 
 	ts_debug("double is 0x%x", core_data->double_wakeup);
-	ts_debug("aod is 0x%x", core_data->aod_status);
 	ts_debug("nonui is 0x%x", core_data->nonui_status);
 	ts_debug("fod is 0x%x", core_data->fod_status);
 	ts_debug("fod icon is 0x%x", core_data->fod_icon_status);
@@ -3364,12 +3329,15 @@ static void goodix_set_gesture_work(struct work_struct *work)
 	if (core_data->nonui_status == 2) {
 		tmp = 0;
 	} else {
-		x = (core_data->nonui_status == 0) &&
-		    (core_data->aod_status != 0);
+		x = 0;
 		if (core_data->double_wakeup) {
 			x |= DOUBLE_TAP_EN;
 		}
 		tmp = x;
+
+		if (core_data->singletap_gesture_enabled) {
+			tmp |= SINGLE_TAP_EN;
+		}
 
 		if (core_data->fod_longpress_gesture_enabled) {
 			tmp |= FOD_EN;
@@ -3522,13 +3490,19 @@ static int goodix_set_cur_value(int gtp_mode, int gtp_value)
 			   &goodix_core_data->gesture_work);
 		return 0;
 	}
-	if (gtp_mode == Touch_Aod_Enable && goodix_core_data &&
+
+	if (gtp_mode == Touch_Singletap_Gesture && goodix_core_data &&
 	    gtp_value >= 0) {
-		goodix_core_data->aod_status = gtp_value;
+		xiaomi_touch_interfaces.touch_mode[gtp_mode][SET_CUR_VALUE] = gtp_value;
+		xiaomi_touch_interfaces.touch_mode[gtp_mode][GET_CUR_VALUE] = gtp_value;
+
+		goodix_core_data->singletap_gesture_enabled = gtp_value;
 		queue_work(goodix_core_data->gesture_wq,
 			   &goodix_core_data->gesture_work);
+
 		return 0;
 	}
+
 	if (gtp_mode == Touch_Fod_Enable && goodix_core_data &&
 	    gtp_value >= 0) {
 		goodix_core_data->fod_status = gtp_value;
