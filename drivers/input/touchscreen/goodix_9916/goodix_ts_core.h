@@ -579,7 +579,6 @@ struct goodix_ts_core {
 	bool tools_ctrl_sync;
 	bool fod_finger;
 	bool fod_down_before_suspend;
-	bool fod_display_enabled;
 	bool irq_priority_high;
 	bool doze_test;
 
@@ -614,9 +613,7 @@ struct goodix_ts_core {
 	int gesture_enabled;
 	int double_wakeup;
 	bool singletap_gesture_enabled;
-	int fod_status;
 	bool fod_longpress_gesture_enabled;
-	int fod_icon_status;
 	int nonui_status;
 	int charger_status;
 	int palm_status;
