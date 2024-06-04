@@ -321,18 +321,8 @@ int goodix_gesture_ist(struct goodix_ts_core *cd)
 		if (((*(byte *)&cd->gesture_enabled >> 2 & 1) != 0) ||
 		    (cd->nonui_status == 2)) {
 			if (cd->fod_finger != false) {
-				ts_info("gesture fod up, overlay_area: %d");
+				ts_info("gesture fod up");
 				cd->fod_finger = false;
-				input_event(cd->input_dev, 1, 0x152, 0);
-				input_event(cd->input_dev, 3, 0x32, 0);
-				input_event(cd->input_dev, 3, 0x33, 0);
-				input_event(cd->input_dev, 0, 0, 0);
-				input_event(cd->input_dev, 3, 0x2f,
-					    gesture_data.fod_id);
-				input_mt_report_slot_state(cd->input_dev, 0, 0);
-				input_event(cd->input_dev, 1, 0x14a, 0);
-				input_event(cd->input_dev, 1, 0x145, 0);
-				input_event(cd->input_dev, 0, 0, 0);
 				update_fod_press_status(0);
 			}
 			goto final_exit;
@@ -375,23 +365,8 @@ int goodix_gesture_ist(struct goodix_ts_core *cd)
 		ts_info("unsupported gesture: %x", event_type);
 		goto success_out;
 	}
-	ts_debug(
-		"gesture coordinate fodx: %d, fody: %d, fod_id: %d, overlay_area: %d",
-		gesture_data.fodx, gesture_data.fody, gesture_data.fod_id,
-		gesture_data.overlay_area);
-	input_event(cd->input_dev, 1, 0x152, 1);
-	input_event(cd->input_dev, 0, 0, 0);
-	input_event(cd->input_dev, 3, 0x2f, gesture_data.fod_id);
-	input_mt_report_slot_state(cd->input_dev, 0, 1);
-	input_event(cd->input_dev, 1, 0x14a, 1);
-	input_event(cd->input_dev, 1, 0x145, 1);
-	input_event(cd->input_dev, 3, 0x35, gesture_data.fodx);
-	input_event(cd->input_dev, 3, 0x36, gesture_data.fody);
-	input_event(cd->input_dev, 3, 0x32, overlay_area);
-	input_event(cd->input_dev, 3, 0x33, overlay_area);
-	input_event(cd->input_dev, 0, 0, 0);
 	if (cd->fod_finger == false) {
-		ts_info("gesture fod down, overlay_area: %d", overlay_area);
+		ts_info("gesture fod down");
 	}
 	cd->fod_finger = true;
 	update_fod_press_status(1);
