@@ -615,6 +615,7 @@ struct goodix_ts_core {
 	int double_wakeup;
 	int aod_status;
 	int fod_status;
+	bool fod_longpress_gesture_enabled;
 	int fod_icon_status;
 	int nonui_status;
 	int charger_status;
