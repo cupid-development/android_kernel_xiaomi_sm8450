@@ -964,7 +964,10 @@ gfspi_probe_clk_init_failed:
 error_regulator:
 	disable_regulators(&gf_dev->supplies);
 
+	/* input_unregister_device calls input_free_device */
 	input_unregister_device(gf_dev->input);
+	gf_dev->input = NULL;
+
 error_input:
 
 	if (gf_dev->input != NULL) {
