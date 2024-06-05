@@ -342,11 +342,8 @@ int goodix_gesture_ist(struct goodix_ts_core *cd)
 			ts_debug("not enable SINGLE-TAP");
 		} else {
 			ts_info("GTP gesture report single tap");
-			input_event(cd->input_dev, 1, 0x162, 1);
-			input_event(cd->input_dev, 0, 0, 0);
-			input_event(cd->input_dev, 1, 0x162, 0);
-			input_event(cd->input_dev, 0, 0, 0);
 		}
+		notify_gesture_single_tap();
 		goto success_out;
 	} else if (event_type == 0x46) {
 		if ((*(byte *)&cd->gesture_enabled >> 2 & 1) == 0) {
