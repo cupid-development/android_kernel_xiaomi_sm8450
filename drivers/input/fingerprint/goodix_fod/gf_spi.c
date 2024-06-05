@@ -78,13 +78,15 @@ static int enable_regulators(struct device *dev);
 
 static void disable_regulators(void)
 {
-	if (supplies->l11c)
+	if (supplies == NULL) return;
+
+	if (!IS_ERR_OR_NULL(supplies->l11c))
 		regulator_disable(supplies->l11c);
-	if (supplies->l9c)
+	if (!IS_ERR_OR_NULL(supplies->l9c))
 		regulator_disable(supplies->l9c);
-	if (supplies->l1c)
+	if (!IS_ERR_OR_NULL(supplies->l1c))
 		regulator_disable(supplies->l1c);
-	if (supplies->l3c)
+	if (!IS_ERR_OR_NULL(supplies->l3c))
 		regulator_disable(supplies->l3c);
 
 	supplies = NULL;
@@ -152,6 +154,11 @@ static int enable_regulators(struct device *dev)
 		rc = regulator_enable(supplies->l3c);
 		if (rc) return rc;
 	} else {
+		/* It is possible that we got L1C but not L3C or vice versa,
+		 * so neither of them might be enabled now, but one of them stored in supplies.
+		 * We don't want to disable a regulator that was never enabled, so set supplies
+		 * to NULL to avoid this. Since no enable call happened, this is safe. */
+		supplies = NULL;
 		dev_err(dev, "fp %s: no supplies found\n", __func__);
 		return -ENODEV;
 	}
@@ -688,34 +695,6 @@ static int gf_open(struct inode *inode, struct file *filp)
 			break;
 		}
 	}
-#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
-	pr_info("Try to enable fp_vdd_vreg\n");
-	gf_dev->vreg = regulator_get(&gf_dev->spi->dev, "fp_vdd_vreg");
-
-	if (gf_dev->vreg == NULL) {
-		dev_err(&gf_dev->spi->dev,
-			"fp_vdd_vreg regulator get failed!\n");
-		mutex_unlock(&device_list_lock);
-		return -EPERM;
-	}
-
-	if (regulator_is_enabled(gf_dev->vreg)) {
-		pr_info("fp_vdd_vreg is already enabled!\n");
-	} else {
-		rc = regulator_enable(gf_dev->vreg);
-
-		if (rc) {
-			dev_err(&gf_dev->spi->dev,
-				"error enabling fp_vdd_vreg!\n");
-			regulator_put(gf_dev->vreg);
-			gf_dev->vreg = NULL;
-			mutex_unlock(&device_list_lock);
-			return -EPERM;
-		}
-	}
-
-	pr_info("fp_vdd_vreg is enabled!\n");
-#endif
 
 	if (status == 0) {
 #ifdef GF_PW_CTL
@@ -811,18 +790,6 @@ static int gf_release(struct inode *inode, struct file *filp)
 		return status;
 	gf_dev = filp->private_data;
 	filp->private_data = NULL;
-	/*
-	 *Disable fp_vdd_vreg regulator
-	 */
-#ifdef CONFIG_FINGERPRINT_FP_VREG_CONTROL
-	pr_info("disable fp_vdd_vreg!\n");
-
-	if (regulator_is_enabled(gf_dev->vreg)) {
-		regulator_disable(gf_dev->vreg);
-		regulator_put(gf_dev->vreg);
-		gf_dev->vreg = NULL;
-	}
-#endif
 	gf_dev->users--;
 
 	if (!gf_dev->users) {
@@ -1059,7 +1026,6 @@ error_regulator:
 
 	input_unregister_device(gf_dev->input);
 error_input:
-
 	if (gf_dev->input != NULL) {
 		input_free_device(gf_dev->input);
 	}
