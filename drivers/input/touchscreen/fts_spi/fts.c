@@ -3742,17 +3742,26 @@ static bool fts_is_in_fodarea(int x, int y)
 }
 
 #endif
+
+static bool fts_nonui_disable_gestures(void)
+{
+	/*
+	 * nonui_status = 1 means phone may be in pocket
+	 * nonui_status = 2 means phone may be covered
+	 */
+	return fts_info->nonui_status == 1 || fts_info->nonui_status == 2;
+}
+
 static u8 fts_need_enter_lp_mode(void)
 {
 /*
- * nonui_status = 1 means phone maybe in pocket,disable single tap to save power
  * return value:
  * bit0:1 fod event
  * bit1:1 single tap event
  */
 	u8 tmp_value = 0;
 
-	if (fts_info->nonui_status == 2)
+	if (fts_nonui_disable_gestures())
 		return tmp_value;
 
 	if (fts_info->singletap_gesture_enabled)
@@ -8267,7 +8276,7 @@ static void fts_switch_mode_work(struct work_struct *work)
 
 	pm_stay_awake(info->dev);
 	if ((!gesture_type && !info->gesture_enabled) ||
-	    info->nonui_status == 2) {
+	    fts_nonui_disable_gestures()) {
 		logError(0, "%s %s: Sense OFF! \n", tag, __func__);
 		setScanMode(SCAN_MODE_ACTIVE, 0x00);
 		fts_disableInterrupt();
