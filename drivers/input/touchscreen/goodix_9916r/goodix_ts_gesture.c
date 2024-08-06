@@ -307,12 +307,7 @@ static int gsx_gesture_ist(struct goodix_ts_core *cd,
 	case GOODIX_GESTURE_DOUBLE_TAP:
 		if (cd->gesture_type & GESTURE_DOUBLE_TAP) {
 			ts_info("get DOUBLE-TAP gesture");
-/*N17 code for HQ-299273 by jiangyue at 2023/7/13 start*/
-			input_report_key(cd->input_dev, KEY_WAKEUP, 1);
-			input_sync(cd->input_dev);
-			input_report_key(cd->input_dev, KEY_WAKEUP, 0);
-/*N17 code for HQ-299273 by jiangyue at 2023/7/13 end*/
-			input_sync(cd->input_dev);
+			notify_gesture_double_tap();
 		} else {
 			ts_debug("not enable DOUBLE-TAP");
 		}
