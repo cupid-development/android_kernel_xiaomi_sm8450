@@ -754,7 +754,6 @@ struct goodix_ts_core {
 	struct workqueue_struct *event_wq;
 	bool tp_pm_suspend;
 	struct completion pm_resume_completion;
-	int aod_status;
 /* N17 code for HQ-290598 by jiangyue at 2023/6/6 end */
 	int fod_status;
 	struct delayed_work panel_notifier_register_work;
