@@ -5,7 +5,6 @@ clk-rpmh.ko
 gcc-waipio.ko
 icc-rpmh.ko
 qcom_ipcc.ko
-qcom_ipc_logging.ko
 qcom-pdc.ko
 qcom_tsens.ko
 rpmh-regulator.ko
@@ -22,7 +21,6 @@ cqhci.ko
 crypto-qti-common.ko
 crypto-qti-hwkm.ko
 dcvs_fp.ko
-debug-regulator.ko
 dispcc-diwali.ko
 dispcc-waipio.ko
 gcc-diwali.ko
@@ -80,7 +78,6 @@ qcom_wdt_core.ko
 qnoc-diwali.ko
 qnoc-qos.ko
 qrtr.ko
-qti-regmap-debugfs.ko
 regmap-spmi.ko
 rtc-pm8xxx.ko
 secure_buffer.ko
