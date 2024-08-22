@@ -118,7 +118,34 @@ extern TestToDo tests;
 extern struct mutex gestureMask_mutex;
 #endif
 
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+char tag[12] = "[ FTS-SEC ]\0";
+#define FTS_EVENT_QUEUE_NAME "fts-event-queue-sec"
+#define FTS_IRQ_QUEUE_NAME "fts-irq-queue-sec"
+#define FTS_FPS_QUEUE_NAME "fts-fps-queue-sec"
+#define FTS_FWU_QUEUE_NAME "fts-fwu-queue-sec"
+#define FTS_DEBUGFS_DIR_NAME "tp_debug_sec"
+#define FTS_TOUCH_DEV_NAME "tp_dev1"
+#define FTS_TP_LOCKDOWN_INFO_NAME "tp_lockdown_info_sec"
+#define FTS_TP_SELFTEST_NAME "tp_selftest_sec"
+#define FTS_TP_DATA_DUMP_NAME "tp_data_dump_sec"
+#define FTS_TP_FW_VERSION_NAME "tp_fw_version_sec"
+#define FTS_TOUCH_FEATURE_QUEUE_NAME "fts-touch-feature-sec"
+#else
 char tag[8] = "[ FTS ]\0";
+#define FTS_EVENT_QUEUE_NAME "fts-event-queue"
+#define FTS_IRQ_QUEUE_NAME "fts-irq-queue"
+#define FTS_FPS_QUEUE_NAME "fts-fps-queue"
+#define FTS_FWU_QUEUE_NAME "fts-fwu-queue"
+#define FTS_DEBUGFS_DIR_NAME "tp_debug"
+#define FTS_TOUCH_DEV_NAME "tp_dev"
+#define FTS_TP_LOCKDOWN_INFO_NAME "tp_lockdown_info_sec"
+#define FTS_TP_SELFTEST_NAME "tp_selftest"
+#define FTS_TP_DATA_DUMP_NAME "tp_data_dump_sec"
+#define FTS_TP_FW_VERSION_NAME "tp_fw_version_sec"
+#define FTS_TOUCH_FEATURE_QUEUE_NAME "fts-touch-feature-sec"
+#endif
+
 /* buffer which store the input device name assigned by the kernel  */
 char fts_ts_phys[64];
 /* buffer used to store the command sent from the MP device file node  */
@@ -1495,10 +1522,17 @@ static ssize_t stm_fts_cmd_show(struct device *dev,
 	}
 #if defined(CONFIG_DRM)
 	if (active_panel) {
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+		info->notifier_cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_SECONDARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_SECONDARY_TOUCH, active_panel,
+			&fts_drm_panel_notifier_callback, (void *)info);
+#else
 		info->notifier_cookie = panel_event_notifier_register(
 			PANEL_EVENT_NOTIFICATION_PRIMARY,
 			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
 			&fts_drm_panel_notifier_callback, (void *)info);
+#endif
 		if (!info->notifier_cookie) {
 			pr_err("Failed to register for panel events\n");
 			return ERROR_BUS_R;
@@ -7436,10 +7470,17 @@ static void fts_register_panel_notifier_work(struct work_struct *work)
 	}
 
 	if (active_panel) {
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+		fts_info->notifier_cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_SECONDARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_SECONDARY_TOUCH, active_panel,
+			&fts_drm_panel_notifier_callback, (void *)fts_info);
+#else
 		fts_info->notifier_cookie = panel_event_notifier_register(
 			PANEL_EVENT_NOTIFICATION_PRIMARY,
 			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
 			&fts_drm_panel_notifier_callback, (void *)fts_info);
+#endif
 		if (!fts_info->notifier_cookie) {
 			logError(1, "Failed to register for panel events\n");
 		}
@@ -8947,10 +8988,17 @@ static int fts_probe(struct spi_device *client)
 		schedule_delayed_work(&info->panel_notifier_register_work,
 				      msecs_to_jiffies(5000));
 	} else {
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+		info->notifier_cookie = panel_event_notifier_register(
+			PANEL_EVENT_NOTIFICATION_SECONDARY,
+			PANEL_EVENT_NOTIFIER_CLIENT_SECONDARY_TOUCH, active_panel,
+			&fts_drm_panel_notifier_callback, (void *)info);
+#else
 		info->notifier_cookie = panel_event_notifier_register(
 			PANEL_EVENT_NOTIFICATION_PRIMARY,
 			PANEL_EVENT_NOTIFIER_CLIENT_PRIMARY_TOUCH, active_panel,
 			&fts_drm_panel_notifier_callback, (void *)info);
+#endif
 		if (!info->notifier_cookie) {
 			logError(1, "Failed to register for panel events\n");
 		}
@@ -9015,7 +9063,7 @@ static int fts_probe(struct spi_device *client)
 	logError(0, "%s SET Event Handler: \n", tag);
 
 	info->event_wq =
-		alloc_workqueue("fts-event-queue",
+		alloc_workqueue(FTS_EVENT_QUEUE_NAME,
 				WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!info->event_wq) {
 		logError(1, "%s ERROR: Cannot create work thread\n", tag);
@@ -9024,7 +9072,7 @@ static int fts_probe(struct spi_device *client)
 	}
 
 	info->irq_wq = alloc_workqueue(
-		"fts-irq-queue", WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+		FTS_IRQ_QUEUE_NAME, WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!info->irq_wq) {
 		logError(1, "%s ERROR: Cannot create irq work thread\n", tag);
 		error = -ENOMEM;
@@ -9032,7 +9080,7 @@ static int fts_probe(struct spi_device *client)
 	}
 
 	info->fps_wq = alloc_workqueue(
-		"fts-fps-queue", WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+		FTS_FPS_QUEUE_NAME, WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!info->fps_wq) {
 		logError(1, "%s ERROR: Cannot create fps thread\n", tag);
 		error = -ENOMEM;
@@ -9242,7 +9290,7 @@ static int fts_probe(struct spi_device *client)
 		info->lockdown_is_ok = true;
 	}
 	info->tp_selftest_proc =
-		proc_create("tp_selftest", 0644, NULL, &fts_selftest_ops);
+		proc_create(FTS_TP_SELFTEST_NAME, 0644, NULL, &fts_selftest_ops);
 
 #ifdef FTS_FW_UPDATE
 #ifdef FW_UPDATE_ON_PROBE
@@ -9258,7 +9306,7 @@ static int fts_probe(struct spi_device *client)
 #else
 	logError(0, "%s SET Auto Fw Update: \n", tag);
 	info->fwu_workqueue = alloc_workqueue(
-		"fts-fwu-queue", WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+		FTS_FWU_QUEUE_NAME, WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!info->fwu_workqueue) {
 		logError(1, "%s ERROR: Cannot create fwu work thread\n", tag);
 		goto ProbeErrorExit_7;
@@ -9299,7 +9347,7 @@ static int fts_probe(struct spi_device *client)
 #endif
 
 #ifdef FTS_DEBUG_FS
-	info->debugfs = debugfs_create_dir("tp_debug", NULL);
+	info->debugfs = debugfs_create_dir(FTS_DEBUGFS_DIR_NAME, NULL);
 	if (info->debugfs) {
 		debugfs_create_file("switch_state", 0660, info->debugfs, info,
 				    &tpdbg_operations);
@@ -9313,7 +9361,7 @@ static int fts_probe(struct spi_device *client)
 		info->fts_tp_class = class_create(THIS_MODULE, "touch");
 #endif
 	info->fts_touch_dev = device_create(info->fts_tp_class, NULL,
-					    DCHIP_ID_0, info, "tp_dev");
+					    DCHIP_ID_0, info, FTS_TOUCH_DEV_NAME);
 
 	if (IS_ERR(info->fts_touch_dev)) {
 		logError(1,
@@ -9331,16 +9379,16 @@ static int fts_probe(struct spi_device *client)
 			"%s Error: Failed to create ellipse_data sysfs group!\n",
 			tag);
 	}
-	info->tp_lockdown_info_proc = proc_create("tp_lockdown_info", 0444,
+	info->tp_lockdown_info_proc = proc_create(FTS_TP_LOCKDOWN_INFO_NAME, 0444,
 						  NULL, &fts_lockdown_info_ops);
 	info->tp_data_dump_proc =
-		proc_create("tp_data_dump", 0444, NULL, &fts_datadump_ops);
+		proc_create(FTS_TP_DATA_DUMP_NAME, 0444, NULL, &fts_datadump_ops);
 	info->tp_fw_version_proc =
-		proc_create("tp_fw_version", 0444, NULL, &fts_fw_version_ops);
+		proc_create(FTS_TP_FW_VERSION_NAME, 0444, NULL, &fts_fw_version_ops);
 
 #ifdef FTS_XIAOMI_TOUCHFEATURE
 	info->touch_feature_wq =
-		alloc_workqueue("fts-touch-feature",
+		alloc_workqueue(FTS_TOUCH_FEATURE_QUEUE_NAME,
 				WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
 	if (!info->touch_feature_wq) {
 		logError(1,
@@ -9377,7 +9425,11 @@ static int fts_probe(struct spi_device *client)
 		fts_enable_click_touch_raw;
 	xiaomi_touch_interfaces.set_up_interrupt_mode =
 		fts_set_up_interrupts_mode;
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+	xiaomitouch_register_modedata(1, &xiaomi_touch_interfaces);
+#else
 	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
+#endif
 	fts_read_touchmode_data();
 	fts_init_touchmode_data();
 	fts_info->enable_touch_delta = 1;
@@ -9400,11 +9452,11 @@ ProbeErrorExit_8:
 	fts_disableInterrupt();
 	device_destroy(info->fts_tp_class, DCHIP_ID_0);
 	if (info->tp_lockdown_info_proc)
-		remove_proc_entry("tp_lockdown_info", NULL);
+		remove_proc_entry(FTS_TP_LOCKDOWN_INFO_NAME, NULL);
 	if (info->tp_data_dump_proc)
-		remove_proc_entry("tp_data_dump", NULL);
+		remove_proc_entry(FTS_TP_DATA_DUMP_NAME, NULL);
 	if (info->tp_fw_version_proc)
-		remove_proc_entry("tp_fw_version", NULL);
+		remove_proc_entry(FTS_TP_FW_VERSION_NAME, NULL);
 	info->tp_lockdown_info_proc = NULL;
 	info->tp_data_dump_proc = NULL;
 	info->tp_fw_version_proc = NULL;
@@ -9414,7 +9466,7 @@ ProbeErrorExit_8:
 */
 ProbeErrorExit_7:
 	if (info->tp_selftest_proc)
-		remove_proc_entry("tp_selftest", NULL);
+		remove_proc_entry(FTS_TP_SELFTEST_NAME, NULL);
 	info->tp_selftest_proc = NULL;
 #ifdef CONFIG_SECURE_TOUCH
 	fts_secure_remove(info);
@@ -9485,13 +9537,13 @@ static int fts_remove(struct spi_device *client)
 
 	fts_proc_remove();
 	if (info->tp_lockdown_info_proc)
-		remove_proc_entry("tp_lockdown_info", NULL);
+		remove_proc_entry(FTS_TP_LOCKDOWN_INFO_NAME, NULL);
 	if (info->tp_selftest_proc)
-		remove_proc_entry("tp_selftest", NULL);
+		remove_proc_entry(FTS_TP_SELFTEST_NAME, NULL);
 	if (info->tp_data_dump_proc)
-		remove_proc_entry("tp_data_dump", NULL);
+		remove_proc_entry(FTS_TP_DATA_DUMP_NAME, NULL);
 	if (info->tp_fw_version_proc)
-		remove_proc_entry("tp_fw_version", NULL);
+		remove_proc_entry(FTS_TP_FW_VERSION_NAME, NULL);
 	info->tp_lockdown_info_proc = NULL;
 	info->tp_selftest_proc = NULL;
 	info->tp_data_dump_proc = NULL;

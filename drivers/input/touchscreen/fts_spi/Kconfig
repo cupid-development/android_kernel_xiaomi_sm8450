@@ -6,5 +6,13 @@ config TOUCHSCREEN_ST_FTS_V521_SPI
 
 	  If unsure, say N.
 
-	  To compile this driver as a module, choose M here: the
+	  To compile this driver as a module, choose M here.
 
+config TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+	bool "Build as a secondary touch module"
+	depends on TOUCHSCREEN_ST_FTS_V521_SPI
+	help
+	  Say Y here if you want to build this driver as a secondary touch module
+	  instead of the primary one.
+
+	  If unsure, say N.
