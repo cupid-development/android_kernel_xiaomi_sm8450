@@ -426,7 +426,7 @@ int xiaomitouch_register_modedata(int touchId,
 	if (!touch_pdata)
 		ret = -ENOMEM;
 
-	BUG_ON(touchId > 2);
+	BUG_ON(touchId >= 2);
 
 	touch_data = touch_pdata->touch_data[touchId];
 	pr_info("%s\n", __func__);
