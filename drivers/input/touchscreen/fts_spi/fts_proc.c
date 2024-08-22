@@ -2470,7 +2470,7 @@ int fts_proc_init(void)
 
 	int retval = 0;
 
-	fts_dir = proc_mkdir_data("fts", 0777, NULL, NULL);
+	fts_dir = proc_mkdir_data(FTS_TS_DRV_NAME, 0777, NULL, NULL);
 	if (fts_dir == NULL) {
 		retval = -ENOMEM;
 		goto out;
@@ -2489,7 +2489,7 @@ int fts_proc_init(void)
 	}
 	return OK;
 badfile:
-	remove_proc_entry("fts", NULL);
+	remove_proc_entry(FTS_TS_DRV_NAME, NULL);
 out:
 	return retval;
 }
@@ -2501,6 +2501,6 @@ out:
 int fts_proc_remove(void)
 {
 	remove_proc_entry(DRIVER_TEST_FILE_NODE, fts_dir);
-	remove_proc_entry("fts", NULL);
+	remove_proc_entry(FTS_TS_DRV_NAME, NULL);
 	return OK;
 }
