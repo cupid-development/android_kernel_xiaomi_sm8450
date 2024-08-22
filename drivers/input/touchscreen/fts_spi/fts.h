@@ -50,13 +50,23 @@
 */
 
 /**** CODE CONFIGURATION ****/
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+#define FTS_TS_DRV_NAME "fts-sec" /*driver name*/
+#else
 #define FTS_TS_DRV_NAME "fts" /*driver name*/
+#endif
 #define FTS_TS_DRV_VERSION "5.2.4.1" /*driver version string format*/
 #define FTS_TS_DRV_VER 0x05020401 /*driver version u32 format*/
 
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+#define PINCTRL_STATE_ACTIVE "pmx_ts_sec_active"
+#define PINCTRL_STATE_SUSPEND "pmx_ts_sec_suspend"
+#define PINCTRL_STATE_RELEASE "pmx_ts_sec_release"
+#else
 #define PINCTRL_STATE_ACTIVE "pmx_ts_active"
 #define PINCTRL_STATE_SUSPEND "pmx_ts_suspend"
 #define PINCTRL_STATE_RELEASE "pmx_ts_release"
+#endif
 
 /*** save power mode ***/
 #define FTS_POWER_SAVE_MODE
@@ -262,7 +272,11 @@ struct fts_hw_platform_data {
  * Forward declaration
  */
 struct fts_ts_info;
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+extern char tag[12];
+#else
 extern char tag[8];
+#endif
 
 /*
  * Dispatch event handler
