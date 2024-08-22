@@ -1665,19 +1665,24 @@ static ssize_t gesture_single_tap_enabled_show(struct device *dev,
 					       char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
+	int i, value;
 
-	if (!touch_pdata) {
+	if (!touch_pdata)
 		return -ENOMEM;
+
+	for (i = 0; i < 2; i++) {
+		touch_data = touch_pdata->touch_data[i];
+
+		if (!touch_data->getModeValue)
+			continue;
+
+		value = touch_data->getModeValue(Touch_Singletap_Gesture,
+						 GET_CUR_VALUE);
+		if (value == 0 || value == 1)
+			return snprintf(buf, PAGE_SIZE, "%d\n", value);
 	}
 
-	touch_data = touch_pdata->touch_data[0];
-
-	if (!touch_data->getModeValue)
-		return -ENOMEM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Singletap_Gesture,
-						 GET_CUR_VALUE));
+	return -ENOMEM;
 }
 
 static ssize_t gesture_single_tap_enabled_store(struct device *dev,
@@ -1738,19 +1743,24 @@ static ssize_t gesture_double_tap_enabled_show(struct device *dev,
 					       char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
+	int i, value;
 
-	if (!touch_pdata) {
+	if (!touch_pdata)
 		return -ENOMEM;
+
+	for (i = 0; i < 2; i++) {
+		touch_data = touch_pdata->touch_data[i];
+
+		if (!touch_data->getModeValue)
+			continue;
+
+		value = touch_data->getModeValue(Touch_Doubletap_Mode,
+						 GET_CUR_VALUE);
+		if (value == 0 || value == 1)
+			return snprintf(buf, PAGE_SIZE, "%d\n", value);
 	}
 
-	touch_data = touch_pdata->touch_data[0];
-
-	if (!touch_data->getModeValue)
-		return -ENOMEM;
-
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Doubletap_Mode,
-						 GET_CUR_VALUE));
+	return -ENOMEM;
 }
 
 static ssize_t gesture_double_tap_enabled_store(struct device *dev,
@@ -1801,18 +1811,24 @@ static ssize_t fod_longpress_gesture_enabled_show(struct device *dev,
 						  char *buf)
 {
 	struct xiaomi_touch_interface *touch_data = NULL;
+	int i, value;
 
 	if (!touch_pdata)
 		return -ENOMEM;
 
-	touch_data = touch_pdata->touch_data[0];
+	for (i = 0; i < 2; i++) {
+		touch_data = touch_pdata->touch_data[i];
 
-	if (!touch_data->getModeValue)
-		return -ENOMEM;
+		if (!touch_data->getModeValue)
+			continue;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			touch_data->getModeValue(Touch_Fod_Longpress_Gesture,
-						 GET_CUR_VALUE));
+		value = touch_data->getModeValue(Touch_Fod_Longpress_Gesture,
+						 GET_CUR_VALUE);
+		if (value == 0 || value == 1)
+			return snprintf(buf, PAGE_SIZE, "%d\n", value);
+	}
+
+	return -ENOMEM;
 }
 
 static ssize_t
