@@ -1,5 +1,6 @@
 ccflags-y += -DCONFIG_I2C_BY_DMA
 ifneq ($(KERNELRELEASE),)
+    ccflags-y += -I$(srctree)/drivers/misc/hwid/
     obj-$(CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI) := fts_touch_spi.o
     fts_touch_spi-y := fts_lib/ftsCompensation.o \
 			fts_lib/ftsCore.o \
