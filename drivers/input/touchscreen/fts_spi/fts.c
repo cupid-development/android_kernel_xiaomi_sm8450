@@ -67,6 +67,8 @@
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
 
+#define L12_ID_DET (301+119)
+
 #ifdef KERNEL_ABOVE_2_6_38
 #include <linux/input/mt.h>
 #endif
@@ -81,6 +83,7 @@
 #include "fts_lib/ftsTest.h"
 #include "fts_lib/ftsTime.h"
 #include "fts_lib/ftsTool.h"
+#include "hwid.h"
 #include <linux/power_supply.h>
 #include <linux/rtc.h>
 #include <linux/time.h>
@@ -9226,8 +9229,26 @@ static int fts_probe(struct spi_device *client)
 	int res = 0;
 	u8 gesture_cmd[6] = { 0xA2, 0x03, 0x00, 0x00, 0x00, 0x03 };
 #endif
+	int gpio_119;
+	uint32_t hw_project;
+	hw_project = get_hw_version_platform();
+
 	logError(1, "%s %s: driver spi ver: %s\n", tag, __func__,
 		 FTS_TS_DRV_VERSION);
+
+	/* diting (L12) has two touch variants, check for FTS */
+	if (hw_project == HARDWARE_PROJECT_L12) {
+		gpio_direction_input(L12_ID_DET);
+		gpio_119 = gpio_get_value(L12_ID_DET);
+		logError(1, "%s gpio_119 = %d\n", tag, gpio_119);
+		if (!gpio_119) {
+			logError(1, "%s TP is goodix\n", tag);
+			return -ENODEV;
+		} else {
+			logError(1, "%s TP is st 61y\n", tag);
+		}
+	}
+
 #ifdef I2C_INTERFACE
 	logError(1, "%s I2C interface... \n", tag);
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
