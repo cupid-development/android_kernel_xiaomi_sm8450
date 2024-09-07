@@ -464,6 +464,7 @@ struct goodix_ts_hw_ops {
 	int (*after_event_handler)(struct goodix_ts_core *cd);
 	int (*get_capacitance_data)(struct goodix_ts_core *cd,
 			struct ts_rawdata_info *info);
+	int (*switch_report_rate)(struct goodix_ts_core *cd, bool on);
 	int (*set_coor_mode)(struct goodix_ts_core *cd);
 };
 
@@ -558,6 +559,7 @@ struct goodix_ts_core {
 	struct delayed_work gesture_work;
 
 	bool nonui_enabled;
+	int report_rate;
 };
 
 /* external module structures */

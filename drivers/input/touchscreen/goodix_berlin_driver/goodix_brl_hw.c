@@ -1436,6 +1436,23 @@ exit:
 	return ret;
 }
 
+#define GOODIX_HIGH_RATE_CMD		0xC0
+static int brl_switch_report_rate(struct goodix_ts_core *cd, bool on)
+{
+	struct goodix_ts_cmd cmd;
+
+	cmd.cmd = GOODIX_HIGH_RATE_CMD;
+	cmd.len = 5;
+	cmd.data[0] = (on == true) ? 1 : 0;
+	if (cd->hw_ops->send_cmd(cd, &cmd)) {
+		ts_err("failed send report rate cmd, on = %d", on);
+		return -EINVAL;
+	}
+	ts_info("reprot rate switch: %s", (on == true) ? "480HZ" : "240HZ");
+
+	return 0;
+}
+
 #define GOODIX_CMD_RAWDATA	2
 #define GOODIX_CMD_COORD	0
 static int brl_get_capacitance_data(struct goodix_ts_core *cd,
@@ -1548,6 +1565,7 @@ static struct goodix_ts_hw_ops brl_hw_ops = {
 	.after_event_handler = brl_after_event_handler,
 	.get_capacitance_data = brl_get_capacitance_data,
 	.set_coor_mode = brl_set_coor_mode,
+	.switch_report_rate = brl_switch_report_rate,
 };
 
 struct goodix_ts_hw_ops *goodix_get_hw_ops(void)
