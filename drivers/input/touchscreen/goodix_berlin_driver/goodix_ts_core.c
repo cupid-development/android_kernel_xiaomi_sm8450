@@ -1171,6 +1171,9 @@ static int goodix_parse_dt(struct device_node *node,
 	if (board_data->pen_enable)
 		ts_info("goodix pen enabled");
 
+	board_data->support_thp_fw = of_property_read_bool(node,
+					"goodix,support-thp-fw");
+
 	ts_debug("[DT]x:%d, y:%d, w:%d, p:%d", board_data->panel_max_x,
 		 board_data->panel_max_y, board_data->panel_max_w,
 		 board_data->panel_max_p);
@@ -1940,6 +1943,9 @@ out:
 	hw_ops->irq_enable(core_data, true);
 	/* open esd */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
+	if (core_data->board_data.support_thp_fw) {
+		core_data->hw_ops->set_coor_mode(core_data);
+	}
 	ts_info("Resume end");
 	return 0;
 }
@@ -2251,6 +2257,10 @@ upgrade:
 		goto uninit_fw;
 	}
 	cd->init_stage = CORE_INIT_STAGE2;
+
+	if (cd->board_data.support_thp_fw) {
+		cd->hw_ops->set_coor_mode(cd);
+	}
 
 	return 0;
 
