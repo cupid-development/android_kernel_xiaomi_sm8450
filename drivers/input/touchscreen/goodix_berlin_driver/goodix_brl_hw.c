@@ -275,45 +275,6 @@ int brl_suspend(struct goodix_ts_core *cd)
 	return 0;
 }
 
-int brl_resume(struct goodix_ts_core *cd)
-{
-	int ret = 0;
-
-#ifdef GOODIX_SUSPEND_GESTURE_ENABLE
-	ret = cd->hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
-#else
-	ret = cd->hw_ops->power_on(cd, 1);
-	if (ret)
-		ts_err("failed power on");
-#endif
-
-	return ret;
-}
-
-#define GOODIX_GESTURE_CMD_BA	0x12
-#define GOODIX_GESTURE_CMD		0xA6
-int brl_gesture(struct goodix_ts_core *cd, int gesture_type)
-{
-	struct goodix_ts_cmd cmd;
-
-	if (cd->bus->ic_type == IC_TYPE_BERLIN_A)
-		cmd.cmd = GOODIX_GESTURE_CMD_BA;
-	else
-		cmd.cmd = GOODIX_GESTURE_CMD;
-	cmd.len = 6;
-	if (gesture_type) {
-		cmd.data[0] = 0x80;
-		cmd.data[1] = 0x10;
-	} else {
-		cmd.data[0] = 0x00;
-		cmd.data[1] = 0x00;
-	}
-	if (cd->hw_ops->send_cmd(cd, &cmd))
-		ts_err("failed send gesture cmd");
-
-	return 0;
-}
-
 #define GOODIX_BRLD_CMD_RAWDATA 0x90
 #define GOODIX_BRLD_CMD_COORD 0x91
 int brld_set_coor_mode(struct goodix_ts_core *cd) {
@@ -351,10 +312,49 @@ exit:
 	return ret;
 }
 
-static int brl_reset(struct goodix_ts_core *cd, int delay)
+int brl_resume(struct goodix_ts_core *cd)
 {
 	int ret = 0;
 
+#ifdef GOODIX_SUSPEND_GESTURE_ENABLE
+	ret = cd->hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
+#else
+	ret = cd->hw_ops->power_on(cd, 1);
+	if (ret)
+		ts_err("failed power on");
+#endif
+	if (!ret && cd->bus->ic_type == IC_TYPE_BERLIN_D)
+		brld_set_coor_mode(cd);
+
+	return ret;
+}
+
+#define GOODIX_GESTURE_CMD_BA	0x12
+#define GOODIX_GESTURE_CMD		0xA6
+int brl_gesture(struct goodix_ts_core *cd, int gesture_type)
+{
+	struct goodix_ts_cmd cmd;
+
+	if (cd->bus->ic_type == IC_TYPE_BERLIN_A)
+		cmd.cmd = GOODIX_GESTURE_CMD_BA;
+	else
+		cmd.cmd = GOODIX_GESTURE_CMD;
+	cmd.len = 6;
+	if (gesture_type) {
+		cmd.data[0] = 0x80;
+		cmd.data[1] = 0x10;
+	} else {
+		cmd.data[0] = 0x00;
+		cmd.data[1] = 0x00;
+	}
+	if (cd->hw_ops->send_cmd(cd, &cmd))
+		ts_err("failed send gesture cmd");
+
+	return 0;
+}
+
+static int brl_reset(struct goodix_ts_core *cd, int delay)
+{
 	ts_info("chip_reset");
 
 	gpio_direction_output(cd->board_data.reset_gpio, 0);
@@ -365,14 +365,7 @@ static int brl_reset(struct goodix_ts_core *cd, int delay)
 	else
 		msleep(delay);
 
-	ret = brl_select_spi_mode(cd);
-	if (ret)
-		return ret;
-
-	if (cd->bus->ic_type == IC_TYPE_BERLIN_D)
-		brld_set_coor_mode(cd);
-
-	return ret;
+	return brl_select_spi_mode(cd);
 }
 
 static int brl_irq_enbale(struct goodix_ts_core *cd, bool enable)
