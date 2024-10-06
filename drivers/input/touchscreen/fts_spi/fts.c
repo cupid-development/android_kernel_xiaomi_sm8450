@@ -2758,23 +2758,23 @@ void fts_enable_thp_onoff(int enable)
 	fts_disableInterrupt();
 	res = fts_write_dma_safe(cmd_off, ARRAY_SIZE(cmd_off));
 	if (res < OK) {
-		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+		logError(1, "%s %s: cmd_off write failed...ERROR %08X !\n", tag,
 			 __func__, res);
 		return;
 	}
 
-	thp[2] = (enable == 1);
+	thp[2] = enable ? 0 : 1;
 	res = fts_write_dma_safe(thp, ARRAY_SIZE(thp));
 	if (res < OK) {
-		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+		logError(1, "%s %s: thp write failed...ERROR %08X !\n", tag,
 			 __func__, res);
 		return;
 	}
 	fts_info->enable_touch_raw = enable;
 
 	res = fts_write_dma_safe(cmd_on, ARRAY_SIZE(cmd_on));
-	if (res >= OK) {
-		logError(1, "%s %s: write failed...ERROR %08X !\n", tag,
+	if (res < OK) {
+		logError(1, "%s %s: cmd_on write failed...ERROR %08X !\n", tag,
 			 __func__, res);
 		return;
 	}
