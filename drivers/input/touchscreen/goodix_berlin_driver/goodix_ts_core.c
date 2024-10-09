@@ -1938,6 +1938,7 @@ out:
 	/* open esd */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
 	xiaomi_touch_set_suspend_state(0);
+	kthread_run(hw_ops->set_coor_mode, core_data, "gtp_resume_set_coor_mode");
 	ts_info("Resume end");
 	return 0;
 }
@@ -2282,8 +2283,6 @@ static int goodix_send_ic_config(struct goodix_ts_core *cd, int type)
 	return cd->hw_ops->send_config(cd, cfg->data, cfg->len);
 }
 
-int brld_set_coor_mode(struct goodix_ts_core *cd);
-
 /**
  * goodix_later_init_thread - init IC fw and config
  * @data: point to goodix_ts_core
@@ -2356,8 +2355,7 @@ upgrade:
 	}
 	cd->init_stage = CORE_INIT_STAGE2;
 
-	if (cd->bus->ic_type == IC_TYPE_BERLIN_D)
-		brld_set_coor_mode(cd);
+	hw_ops->set_coor_mode(core_data);
 
 	return 0;
 

@@ -277,10 +277,13 @@ int brl_suspend(struct goodix_ts_core *cd)
 
 #define GOODIX_BRLD_CMD_RAWDATA 0x90
 #define GOODIX_BRLD_CMD_COORD 0x91
-int brld_set_coor_mode(void *data) {
+int brl_set_coor_mode(void *data) {
 	struct goodix_ts_core *cd = data;
 	struct goodix_ts_cmd cmd;
 	int ret = 0;
+
+	if (cd->bus->ic_type != IC_TYPE_BERLIN_D)
+		return ret;
 
 	ts_debug("brld_set_coor_mode, init_stage: %d", cd->init_stage);
 
@@ -324,8 +327,6 @@ int brl_resume(struct goodix_ts_core *cd)
 	if (ret)
 		ts_err("failed power on");
 #endif
-	if (!ret && cd->bus->ic_type == IC_TYPE_BERLIN_D)
-		kthread_run(brld_set_coor_mode, cd, "goodix_brld_set_coor_mode");
 
 	return ret;
 }
@@ -1541,6 +1542,7 @@ static struct goodix_ts_hw_ops brl_hw_ops = {
 	.event_handler = brl_event_handler,
 	.after_event_handler = brl_after_event_handler,
 	.get_capacitance_data = brl_get_capacitance_data,
+	.set_coor_mode = brl_set_coor_mode,
 };
 
 struct goodix_ts_hw_ops *goodix_get_hw_ops(void)

@@ -462,6 +462,7 @@ struct goodix_ts_hw_ops {
 	int (*after_event_handler)(struct goodix_ts_core *cd);
 	int (*get_capacitance_data)(struct goodix_ts_core *cd,
 			struct ts_rawdata_info *info);
+	int (*set_coor_mode)(struct goodix_ts_core *cd);
 };
 
 /*
