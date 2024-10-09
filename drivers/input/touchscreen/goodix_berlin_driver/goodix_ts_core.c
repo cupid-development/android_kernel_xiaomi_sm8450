@@ -1893,6 +1893,8 @@ static int goodix_ts_resume(struct goodix_ts_core *core_data)
 	atomic_set(&core_data->suspended, 0);
 	hw_ops->irq_enable(core_data, false);
 
+	cancel_delayed_work_sync(&core_data->gesture_work);
+
 	mutex_lock(&goodix_modules.mutex);
 	if (!list_empty(&goodix_modules.head)) {
 		list_for_each_entry_safe(ext_module, next,
@@ -1938,14 +1940,15 @@ out:
 	/* open esd */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
 	xiaomi_touch_set_suspend_state(0);
-	kthread_run(hw_ops->set_coor_mode, core_data, "gtp_resume_set_coor_mode");
+	schedule_work(&core_data->coor_mode_work);
 	ts_info("Resume end");
 	return 0;
 }
 
 static void goodix_set_gesture_work(struct work_struct *work)
 {
-	struct goodix_ts_core *core_data = container_of(work, struct goodix_ts_core, gesture_work);
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct goodix_ts_core *core_data = container_of(dwork, struct goodix_ts_core, gesture_work);
 	struct goodix_ts_hw_ops *hw_ops = core_data->hw_ops;
 	unsigned int target_gesture_type;
 	int res;
@@ -1955,7 +1958,6 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		return;
 	}
 
-	mutex_lock(&core_data->gesture_mutex);
 	pm_stay_awake(core_data->bus->dev);
 
 	target_gesture_type = core_data->nonui_enabled ? 0 : core_data->gesture_type;
@@ -1966,7 +1968,9 @@ static void goodix_set_gesture_work(struct work_struct *work)
 	}
 
 	hw_ops->reset(core_data, GOODIX_NORMAL_RESET_DELAY_MS);
+	ts_debug("goodix_set_gesture_work enables gesture");
 	res = hw_ops->gesture(core_data, target_gesture_type);
+	ts_debug("goodix_set_gesture_work enabled gesture");
 	if (res) {
 		ts_err("failed enter gesture mode");
 		goto exit;
@@ -1978,7 +1982,6 @@ static void goodix_set_gesture_work(struct work_struct *work)
 
 exit:
 	pm_relax(core_data->bus->dev);
-	mutex_unlock(&core_data->gesture_mutex);
 }
 
 static int goodix_set_cur_value(int mode, int value)
@@ -2017,7 +2020,7 @@ static int goodix_set_cur_value(int mode, int value)
 			return 0;
 	}
 
-	queue_work(ts_core->gesture_wq, &ts_core->gesture_work);
+	queue_delayed_work(ts_core->gesture_wq, &ts_core->gesture_work, msecs_to_jiffies(GOODIX_NORMAL_GESTURE_DELAY_MS));
 
 	return 0;
 }
@@ -2060,7 +2063,7 @@ static void goodix_panel_notifier_callback(enum panel_event_notifier_tag tag,
 			notification->notif_data.early_trigger);
 	switch (notification->notif_type) {
 	case DRM_PANEL_EVENT_UNBLANK:
-		if (!notification->notif_data.early_trigger)
+		if (notification->notif_data.early_trigger)
 			goodix_ts_resume(core_data);
 		break;
 
@@ -2184,6 +2187,14 @@ void xiaomi_touch_init(void)
 	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
 }
 
+static void goodix_coor_mode_work(struct work_struct *work)
+{
+	struct goodix_ts_core *cd = container_of(work,
+			struct goodix_ts_core, coor_mode_work);
+
+	cd->hw_ops->set_coor_mode(cd);
+}
+
 int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 {
 	int ret;
@@ -2219,8 +2230,8 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 		goto exit;
 	}
 
-	INIT_WORK(&cd->gesture_work, goodix_set_gesture_work);
-
+	INIT_WORK(&cd->coor_mode_work, goodix_coor_mode_work);
+	INIT_DELAYED_WORK(&cd->gesture_work, goodix_set_gesture_work);
 #if defined(CONFIG_DRM)
 	if (active_panel)
 		goodix_register_for_panel_events(cd->bus->dev->of_node, cd);
@@ -2242,8 +2253,6 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	/* gesture init */
 	gesture_module_init();
 #endif
-
-	mutex_init(&cd->gesture_mutex);
 
 	/* inspect init */
 	inspect_module_init();
@@ -2355,7 +2364,7 @@ upgrade:
 	}
 	cd->init_stage = CORE_INIT_STAGE2;
 
-	hw_ops->set_coor_mode(core_data);
+	schedule_work(&cd->coor_mode_work);
 
 	return 0;
 
