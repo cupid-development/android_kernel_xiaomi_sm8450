@@ -343,7 +343,7 @@ static int gsx_gesture_before_resume(struct goodix_ts_core *cd,
 	disable_irq_wake(cd->irq);
 	hw_ops->reset(cd, GOODIX_NORMAL_RESET_DELAY_MS);
 
-	return EVT_CONTINUE;
+	return EVT_CANCEL_RESUME;
 }
 
 static struct goodix_ext_module_funcs gsx_gesture_funcs = {
