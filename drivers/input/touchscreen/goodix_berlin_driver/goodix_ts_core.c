@@ -1954,7 +1954,7 @@ static void goodix_panel_notifier_callback(enum panel_event_notifier_tag tag,
 			notification->notif_data.early_trigger);
 	switch (notification->notif_type) {
 	case DRM_PANEL_EVENT_UNBLANK:
-		if (!notification->notif_data.early_trigger)
+		if (notification->notif_data.early_trigger)
 			goodix_ts_resume(core_data);
 		break;
 
