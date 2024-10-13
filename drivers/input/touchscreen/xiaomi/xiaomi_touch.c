@@ -1646,8 +1646,16 @@ EXPORT_SYMBOL_GPL(update_fod_press_status);
 int notify_gesture_single_tap(void)
 {
 	mutex_lock(&xiaomi_touch_dev.gesture_single_tap_mutex);
+
+	if (!touch_pdata) {
+		mutex_unlock(&xiaomi_touch_dev.gesture_single_tap_mutex);
+		return -ENODEV;
+	}
+
+	atomic_set(&touch_pdata->pending_single_tap_gesture, 1);
 	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
 		     "gesture_single_tap_state");
+
 	mutex_unlock(&xiaomi_touch_dev.gesture_single_tap_mutex);
 	return 0;
 }
@@ -1657,7 +1665,9 @@ static ssize_t gesture_single_tap_value_show(struct device *dev,
 					     struct device_attribute *attr,
 					     char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", 1);
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_cmpxchg(&pdata->pending_single_tap_gesture, 1, 0));
 }
 
 static ssize_t gesture_single_tap_enabled_show(struct device *dev,
@@ -1724,8 +1734,16 @@ static ssize_t gesture_single_tap_enabled_store(struct device *dev,
 int notify_gesture_double_tap(void)
 {
 	mutex_lock(&xiaomi_touch_dev.gesture_double_tap_mutex);
+
+	if (!touch_pdata) {
+		mutex_unlock(&xiaomi_touch_dev.gesture_double_tap_mutex);
+		return -ENODEV;
+	}
+
+	atomic_set(&touch_pdata->pending_double_tap_gesture, 1);
 	sysfs_notify(&xiaomi_touch_dev.dev->kobj, NULL,
 		     "gesture_double_tap_state");
+
 	mutex_unlock(&xiaomi_touch_dev.gesture_double_tap_mutex);
 	return 0;
 }
@@ -1735,7 +1753,9 @@ static ssize_t gesture_double_tap_value_show(struct device *dev,
 					     struct device_attribute *attr,
 					     char *buf)
 {
-	return snprintf(buf, PAGE_SIZE, "%d\n", 1);
+	struct xiaomi_touch_pdata *pdata = dev_get_drvdata(dev);
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_cmpxchg(&pdata->pending_double_tap_gesture, 1, 0));
 }
 
 static ssize_t gesture_double_tap_enabled_show(struct device *dev,
