@@ -542,6 +542,10 @@ struct goodix_ts_core {
 	atomic_t delayed_vm_probe_pending;
 	atomic_t trusted_touch_mode;
 #endif
+
+	struct workqueue_struct *power_wq;
+	struct work_struct resume_work;
+	struct work_struct suspend_work;
 };
 
 /* external module structures */
