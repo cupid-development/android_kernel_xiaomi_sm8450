@@ -1903,6 +1903,8 @@ static int goodix_ts_resume(struct goodix_ts_core *core_data)
 	atomic_set(&core_data->suspended, 0);
 	hw_ops->irq_enable(core_data, false);
 
+	cancel_delayed_work_sync(&core_data->gesture_work);
+
 	mutex_lock(&goodix_modules.mutex);
 	if (!list_empty(&goodix_modules.head)) {
 		list_for_each_entry_safe(ext_module, next,
@@ -1962,6 +1964,45 @@ static void goodix_resume_work(struct work_struct *work)
 	goodix_ts_resume(core_data);
 }
 
+static void goodix_set_gesture_work(struct work_struct *work)
+{
+	struct delayed_work *dwork = to_delayed_work(work);
+	struct goodix_ts_core *core_data = container_of(dwork, struct goodix_ts_core, gesture_work);
+	struct goodix_ts_hw_ops *hw_ops = core_data->hw_ops;
+	unsigned int target_gesture_type;
+	int res;
+
+	if (!atomic_read(&core_data->suspended)) {
+		ts_debug("touch is not suspended, skip re-wake");
+		return;
+	}
+
+	pm_stay_awake(core_data->bus->dev);
+
+	target_gesture_type = core_data->nonui_enabled ? 0 : core_data->gesture_type;
+
+	if (target_gesture_type == 0) {
+		disable_irq_wake(core_data->irq);
+		hw_ops->irq_enable(core_data, false);
+		hw_ops->gesture(core_data, 0);
+		goto exit;
+	}
+
+	hw_ops->reset(core_data, GOODIX_NORMAL_RESET_DELAY_MS);
+	res = hw_ops->gesture(core_data, target_gesture_type);
+	if (res) {
+		ts_err("failed enter gesture mode");
+		goto exit;
+	} else {
+		ts_err("enter gesture mode");
+	}
+	hw_ops->irq_enable(core_data, true);
+	enable_irq_wake(core_data->irq);
+
+exit:
+	pm_relax(core_data->bus->dev);
+}
+
 static int goodix_set_cur_value(int mode, int value)
 {
 	ts_debug("mode: %d, value: %d", mode, value);
@@ -1969,10 +2010,33 @@ static int goodix_set_cur_value(int mode, int value)
 	if (!ts_core || value < 0) return 0;
 
 	switch (mode) {
+		case Touch_Doubletap_Mode:
+			if (value)
+				ts_core->gesture_type |= GESTURE_DOUBLE_TAP;
+			else
+				ts_core->gesture_type &= ~GESTURE_DOUBLE_TAP;
+			break;
+		case Touch_Singletap_Gesture:
+			if (value)
+				ts_core->gesture_type |= GESTURE_SINGLE_TAP;
+			else
+				ts_core->gesture_type &= ~GESTURE_SINGLE_TAP;
+			break;
+		case Touch_Fod_Longpress_Gesture:
+			if (value)
+				ts_core->gesture_type |= GESTURE_FOD_PRESS;
+			else
+				ts_core->gesture_type &= ~GESTURE_FOD_PRESS;
+			break;
+		case Touch_Nonui_Mode:
+			ts_core->nonui_enabled = value != 0;
+			break;
 		default:
 			ts_err("handler got mode %d with value %d, not implemented", mode, value);
 			return 0;
 	}
+
+	queue_delayed_work(ts_core->gesture_wq, &ts_core->gesture_work, msecs_to_jiffies(GOODIX_NORMAL_GESTURE_DELAY_MS));
 
 	return 0;
 }
@@ -1984,6 +2048,14 @@ static int goodix_get_mode_value(int mode, int value_type)
 	if (!ts_core) return -1;
 
 	switch (mode) {
+		case Touch_Doubletap_Mode:
+			return (ts_core->gesture_type & GESTURE_DOUBLE_TAP) != 0;
+		case Touch_Singletap_Gesture:
+			return (ts_core->gesture_type & GESTURE_SINGLE_TAP) != 0;
+		case Touch_Fod_Longpress_Gesture:
+			return (ts_core->gesture_type & GESTURE_FOD_PRESS) != 0;
+		case Touch_Nonui_Mode:
+			return ts_core->nonui_enabled ? 2 : 0;
 		default:
 			ts_err("handler got mode %d with value_type %d, not implemented", mode, value_type);
 			return -1;
@@ -2168,6 +2240,15 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 	INIT_WORK(&cd->resume_work, goodix_resume_work);
 	INIT_WORK(&cd->suspend_work, goodix_suspend_work);
 
+	cd->gesture_wq =
+		alloc_workqueue("gtp-gesture-queue",
+				WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+	if (!cd->gesture_wq) {
+		ts_err("cannot create gesture work thread");
+		ret = -ENOMEM;
+		goto exit;
+	}
+	INIT_DELAYED_WORK(&cd->gesture_work, goodix_set_gesture_work);
 #if defined(CONFIG_DRM)
 	if (active_panel)
 		goodix_register_for_panel_events(cd->bus->dev->of_node, cd);
