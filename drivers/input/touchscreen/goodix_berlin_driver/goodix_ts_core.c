@@ -1860,6 +1860,13 @@ out:
 	return 0;
 }
 
+static void goodix_suspend_work(struct work_struct *work)
+{
+	struct goodix_ts_core *core_data = container_of(work, struct goodix_ts_core, suspend_work);
+
+	goodix_ts_suspend(core_data);
+}
+
 /**
  * goodix_ts_resume - Touchscreen resume function
  * Called by PM/FB/EARLYSUSPEN module to wakeup device
@@ -1926,6 +1933,13 @@ out:
 	return 0;
 }
 
+static void goodix_resume_work(struct work_struct *work)
+{
+	struct goodix_ts_core *core_data = container_of(work, struct goodix_ts_core, resume_work);
+
+	goodix_ts_resume(core_data);
+}
+
 #if defined(CONFIG_DRM)
 
 static void goodix_panel_notifier_callback(enum panel_event_notifier_tag tag,
@@ -1943,14 +1957,18 @@ static void goodix_panel_notifier_callback(enum panel_event_notifier_tag tag,
 			notification->notif_data.early_trigger);
 	switch (notification->notif_type) {
 	case DRM_PANEL_EVENT_UNBLANK:
-		if (notification->notif_data.early_trigger)
-			goodix_ts_resume(core_data);
+		if (notification->notif_data.early_trigger) {
+			flush_workqueue(core_data->power_wq);
+			queue_work(core_data->power_wq, &core_data->resume_work);
+		}
 		break;
 
 	case DRM_PANEL_EVENT_BLANK:
 	case DRM_PANEL_EVENT_BLANK_LP:
-		if (notification->notif_data.early_trigger)
-			goodix_ts_suspend(core_data);
+		if (notification->notif_data.early_trigger) {
+			flush_workqueue(core_data->power_wq);
+			queue_work(core_data->power_wq, &core_data->suspend_work);
+		}
 		break;
 	case DRM_PANEL_EVENT_FPS_CHANGE:
 		ts_debug("Received fps change old fps:%d new fps:%d\n",
@@ -2079,6 +2097,17 @@ int goodix_ts_stage2_init(struct goodix_ts_core *cd)
 		goto exit;
 	}
 	ts_info("success register irq");
+
+	cd->power_wq =
+		alloc_workqueue("gtp-power-queue",
+				WQ_UNBOUND | WQ_HIGHPRI | WQ_CPU_INTENSIVE, 1);
+	if (!cd->power_wq) {
+		ts_err("cannot create power work thread");
+		ret = -ENOMEM;
+		goto exit;
+	}
+	INIT_WORK(&cd->resume_work, goodix_resume_work);
+	INIT_WORK(&cd->suspend_work, goodix_suspend_work);
 
 #if defined(CONFIG_DRM)
 	if (active_panel)
