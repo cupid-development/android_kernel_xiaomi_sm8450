@@ -199,6 +199,8 @@ struct xiaomi_touch_pdata {
 	int abnormal_event_head;
 	bool abnormal_event_flag;
 	char abnormal_event_buf[ABNORMAL_EVENT_NUM][ABNORMAL_EVENT_SIZE];
+	atomic_t pending_double_tap_gesture;
+	atomic_t pending_single_tap_gesture;
 };
 
 typedef struct {
