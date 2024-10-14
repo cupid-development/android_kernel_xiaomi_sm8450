@@ -4415,7 +4415,8 @@ static void fts_gesture_event_handler(struct fts_ts_info *info,
 		needCoords = 1;
 #ifdef FTS_FOD_AREA_REPORT
 		if (event[2] == GEST_ID_LONG_PRESS) {
-			if (!info->fod_pressed && fts_is_in_fodarea(x, y)) {
+			// Ignore fod down events when screen is resumed since userspace handles fod then
+			if (!info->resume_bit && !info->fod_pressed && fts_is_in_fodarea(x, y)) {
 				logError(1, "%s %s Fod Down\n", tag, __func__);
 				info->fod_pressed = true;
 				update_fod_press_status(1);
