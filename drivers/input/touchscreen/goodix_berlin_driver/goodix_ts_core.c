@@ -2031,9 +2031,6 @@ static int goodix_set_cur_value(int mode, int value)
 		case Touch_Nonui_Mode:
 			ts_core->nonui_enabled = value != 0;
 			break;
-		case THP_FOD_DOWNUP_CTL:
-			update_fod_press_status(value != 0);
-			return 0;
 		default:
 			ts_err("handler got mode %d with value %d, not implemented", mode, value);
 			return 0;
