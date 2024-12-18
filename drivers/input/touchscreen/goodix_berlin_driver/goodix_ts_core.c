@@ -28,9 +28,6 @@
 
 #include "goodix_ts_core.h"
 
-static struct xiaomi_touch_interface xiaomi_touch_interfaces;
-struct goodix_ts_core *ts_core;
-
 #define GOODIX_DEFAULT_FW_PROPERTY	"goodix,firmware-name"
 #define GOODIX_DEFAULT_CFG_PROPERTY	"goodix,config-name"
 #define GOODIX_FW_PROPERTY_A		"goodix,firmware-namea"
@@ -1873,7 +1870,6 @@ static int goodix_ts_suspend(struct goodix_ts_core *core_data)
 
 out:
 	goodix_ts_release_connects(core_data);
-	xiaomi_touch_set_suspend_state(1);
 	ts_info("Suspend end");
 	return 0;
 }
@@ -1947,7 +1943,6 @@ out:
 	hw_ops->irq_enable(core_data, true);
 	/* open esd */
 	goodix_ts_blocking_notify(NOTIFY_RESUME, NULL);
-	xiaomi_touch_set_suspend_state(0);
 	if (core_data->board_data.support_thp_fw) {
 		core_data->hw_ops->set_coor_mode(core_data);
 	}
@@ -1960,34 +1955,6 @@ static void goodix_resume_work(struct work_struct *work)
 	struct goodix_ts_core *core_data = container_of(work, struct goodix_ts_core, resume_work);
 
 	goodix_ts_resume(core_data);
-}
-
-static int goodix_set_cur_value(int mode, int value)
-{
-	ts_debug("mode: %d, value: %d", mode, value);
-
-	if (!ts_core || value < 0) return 0;
-
-	switch (mode) {
-		default:
-			ts_err("handler got mode %d with value %d, not implemented", mode, value);
-			return 0;
-	}
-
-	return 0;
-}
-
-static int goodix_get_mode_value(int mode, int value_type)
-{
-	ts_debug("get mode: %d, value_type: %d", mode, value_type);
-
-	if (!ts_core) return -1;
-
-	switch (mode) {
-		default:
-			ts_err("handler got mode %d with value_type %d, not implemented", mode, value_type);
-			return -1;
-	}
 }
 
 #if defined(CONFIG_DRM)
@@ -2120,15 +2087,6 @@ static int goodix_generic_noti_callback(struct notifier_block *self,
 		break;
 	}
 	return 0;
-}
-
-void xiaomi_touch_init(void)
-{
-	memset(&xiaomi_touch_interfaces, 0x00,
-			sizeof(struct xiaomi_touch_interface));
-	xiaomi_touch_interfaces.setModeValue = goodix_set_cur_value;
-	xiaomi_touch_interfaces.getModeValue = goodix_get_mode_value;
-	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
 }
 
 int goodix_ts_stage2_init(struct goodix_ts_core *cd)
@@ -2504,10 +2462,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	core_data->init_stage = CORE_INIT_STAGE1;
 	goodix_modules.core_data = core_data;
 	core_module_prob_sate = CORE_MODULE_PROB_SUCCESS;
-	ts_core = core_data;
-
-	/* xiaomi touch init */
-	xiaomi_touch_init();
 
 	/* Try start a thread to get config-bin info */
 	goodix_start_later_init(core_data);
@@ -2556,8 +2510,6 @@ static int goodix_ts_remove(struct platform_device *pdev)
 		goodix_ts_procfs_exit(core_data);
 		goodix_ts_power_off(core_data);
 	}
-
-	ts_core = NULL;
 
 	return 0;
 }
