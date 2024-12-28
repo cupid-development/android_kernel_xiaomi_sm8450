@@ -1,6 +1,8 @@
 config TOUCHSCREEN_XIAOMI_TOUCHFEATURE
 	tristate "Xiaomi Touch Feature"
+	depends on DRM
 	depends on INPUT_TOUCHSCREEN
+	depends on OF
 	help
 	  Say Y here if you want to enable xiaomi touch feature.
 
