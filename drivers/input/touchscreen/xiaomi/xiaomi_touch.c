@@ -14,12 +14,18 @@
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 #include <linux/module.h>
+#include <linux/of.h>
+#include <linux/soc/qcom/panel_event_notifier.h>
 #include <linux/uaccess.h>
+#include <linux/workqueue.h>
 
 struct class *touch_class;
 struct device *touch_dev;
 
 static struct xiaomi_touch_interface *interfaces[TOUCH_ID_NUM];
+
+static struct workqueue_struct *register_panel_wq;
+static struct delayed_work register_panel_work;
 
 struct oneshot_sensor_attribute {
 	struct device_attribute dev_attr;
@@ -57,6 +63,19 @@ struct oneshot_sensor {
  * Used in generic methods to provide sensor specific options.
  */
 static struct oneshot_sensor *oneshot_sensor_map[ONESHOT_SENSOR_TYPE_NUM];
+
+/*
+ * Stores the state of requested and actually configured gesture enabled
+ * states. They diverge when we defer enabling/disabling gestures while
+ * resumed.
+ */
+static atomic_t oneshot_sensor_enabled_requested[ONESHOT_SENSOR_TYPE_NUM];
+static atomic_t oneshot_sensor_enabled[ONESHOT_SENSOR_TYPE_NUM];
+
+static atomic_t suspended;
+
+static struct workqueue_struct *oneshot_sensor_enable_wq;
+static struct delayed_work oneshot_sensor_enable_work;
 
 int register_xiaomi_touch_client(enum touch_id touch_id,
 				 struct xiaomi_touch_interface *interface)
@@ -97,6 +116,32 @@ int notify_oneshot_sensor(enum oneshot_sensor_type sensor_type, int value)
 }
 EXPORT_SYMBOL_GPL(notify_oneshot_sensor);
 
+static void oneshot_sensor_enable_handler(struct work_struct *work)
+{
+	int i;
+	struct xiaomi_touch_interface *interface;
+
+	interface = interfaces[TOUCH_ID_PRIMARY];
+	if (!interface || !interface->get_mode_value ||
+	    !interface->set_mode_value)
+		return;
+
+	if (!atomic_read(&suspended))
+		return;
+
+	for (i = 0; i < ONESHOT_SENSOR_TYPE_NUM; i++) {
+		int requested_value =
+			atomic_read(&oneshot_sensor_enabled_requested[i]);
+		if (atomic_xchg(&oneshot_sensor_enabled[i], requested_value) !=
+		    requested_value) {
+			pr_info("setting mode %d to %d!\n", i, requested_value);
+			interface->set_mode_value(interface->private,
+						  oneshot_sensor_map[i]->mode,
+						  requested_value);
+		}
+	}
+}
+
 static ssize_t oneshot_sensor_status_show(struct device *dev,
 					  struct device_attribute *attr,
 					  char *buf)
@@ -116,34 +161,22 @@ static ssize_t oneshot_sensor_enabled_show(struct device *dev,
 					   struct device_attribute *attr,
 					   char *buf)
 {
-	struct xiaomi_touch_interface *interface;
 	struct oneshot_sensor_attribute *sensor_attribute =
 		container_of(attr, struct oneshot_sensor_attribute, dev_attr);
 
-	interface = interfaces[TOUCH_ID_PRIMARY];
-	if (!interface || !interface->get_mode_value)
-		return -EFAULT;
-
 	return snprintf(
 		buf, PAGE_SIZE, "%d\n",
-		interface->get_mode_value(
-			interface->private,
-			oneshot_sensor_map[sensor_attribute->type]->mode));
+		atomic_read(&oneshot_sensor_enabled_requested[sensor_attribute
+								      ->type]));
 }
 
 static ssize_t oneshot_sensor_enabled_store(struct device *dev,
 					    struct device_attribute *attr,
 					    const char *arg, size_t count)
 {
-	struct xiaomi_touch_interface *interface;
 	struct oneshot_sensor_attribute *sensor_attribute =
 		container_of(attr, struct oneshot_sensor_attribute, dev_attr);
 	unsigned int enable;
-
-	interface = interfaces[TOUCH_ID_PRIMARY];
-	if (!interface || !interface->get_mode_value ||
-	    !interface->set_mode_value)
-		return -EFAULT;
 
 	if (kstrtouint(arg, 10, &enable))
 		return -EINVAL;
@@ -152,14 +185,13 @@ static ssize_t oneshot_sensor_enabled_store(struct device *dev,
 	if (enable < 0 || enable > 1)
 		return -EINVAL;
 
-	if (interface->get_mode_value(
-		    interface->private,
-		    oneshot_sensor_map[sensor_attribute->type]->mode) !=
-	    enable) {
-		interface->set_mode_value(
-			interface->private,
-			oneshot_sensor_map[sensor_attribute->type]->mode,
-			enable);
+	if (atomic_xchg(
+		    &oneshot_sensor_enabled_requested[sensor_attribute->type],
+		    enable) != enable) {
+		cancel_delayed_work_sync(&oneshot_sensor_enable_work);
+		queue_delayed_work(oneshot_sensor_enable_wq,
+				   &oneshot_sensor_enable_work,
+				   msecs_to_jiffies(300));
 		sysfs_notify(&dev->kobj, NULL, attr->attr.name);
 	}
 
@@ -262,6 +294,100 @@ static const struct file_operations xiaomitouch_dev_fops = {
 	.unlocked_ioctl = xiaomi_touch_dev_ioctl,
 };
 
+static void
+touch_panel_event_callback(enum panel_event_notifier_tag tag,
+			   struct panel_event_notification *notification,
+			   void *client_data)
+{
+	if (!notification)
+		return;
+
+	switch (notification->notif_type) {
+	case DRM_PANEL_EVENT_BLANK:
+	case DRM_PANEL_EVENT_BLANK_LP:
+		/*
+		 * Apply the settings which were done while the display was
+		 * resumed. Delay it to avoid unnecessary touchscreen
+		 * notifications when the changes are being reverted when
+		 * the screen turns off.
+		 */
+		if (!notification->notif_data.early_trigger) {
+			atomic_set(&suspended, 1);
+			queue_delayed_work(oneshot_sensor_enable_wq,
+					   &oneshot_sensor_enable_work,
+					   msecs_to_jiffies(300));
+		}
+		break;
+	case DRM_PANEL_EVENT_UNBLANK:
+		/*
+		 * Store the suspended state and cancel the delayed work to
+		 * avoid unnecessary touchscreen notifications. If the mode is
+		 * actually changed, the touchscreen will be notified on the
+		 * next suspend.
+		 */
+		if (notification->notif_data.early_trigger) {
+			atomic_set(&suspended, 0);
+			cancel_delayed_work_sync(&oneshot_sensor_enable_work);
+		}
+		break;
+	default:
+		break;
+	}
+}
+
+static bool touch_register_panel_event_notifier(
+	struct device_node *np, const char *property_name,
+	enum panel_event_notifier_tag tag,
+	enum panel_event_notifier_client client, void **cookie)
+{
+	int count, i;
+	struct device_node *node;
+	struct drm_panel *panel;
+
+	if (*cookie)
+		return true;
+	count = of_count_phandle_with_args(np, property_name, NULL);
+	if (count <= 0)
+		return true;
+	for (i = 0; i < count; i++) {
+		node = of_parse_phandle(np, property_name, i);
+		panel = of_drm_find_panel(node);
+		of_node_put(node);
+		if (!IS_ERR(panel))
+			break;
+	}
+	if (IS_ERR(panel))
+		return false;
+
+	*cookie = panel_event_notifier_register(
+		tag, client, panel, touch_panel_event_callback, NULL);
+
+	return !IS_ERR(*cookie);
+}
+
+static void *panel_cookie_primary, *panel_cookie_secondary;
+
+static void register_panel_handler(struct work_struct *work)
+{
+	struct device_node *node;
+	bool primary, secondary;
+
+	node = of_find_node_by_name(NULL, "xiaomi-touch");
+	primary = touch_register_panel_event_notifier(
+		node, "panel-primary", PANEL_EVENT_NOTIFICATION_PRIMARY,
+		PANEL_EVENT_NOTIFIER_CLIENT_XIAOMI_TOUCH_PRIMARY,
+		&panel_cookie_primary);
+	secondary = touch_register_panel_event_notifier(
+		node, "panel-secondary", PANEL_EVENT_NOTIFICATION_SECONDARY,
+		PANEL_EVENT_NOTIFIER_CLIENT_XIAOMI_TOUCH_SECONDARY,
+		&panel_cookie_secondary);
+	if (!primary || !secondary) {
+		pr_info("Failed to register panel event notifier, trying again in 5 seconds!\n");
+		queue_delayed_work(register_panel_wq, &register_panel_work,
+				   5 * HZ);
+	}
+}
+
 static struct miscdevice misc_dev = {
 	.minor = MISC_DYNAMIC_MINOR,
 	.name = "xiaomi-touch",
@@ -275,6 +401,15 @@ static int __init xiaomi_touch_init(void)
 	oneshot_sensor_map[ONESHOT_SENSOR_SINGLE_TAP] = &single_tap_sensor;
 	oneshot_sensor_map[ONESHOT_SENSOR_DOUBLE_TAP] = &double_tap_sensor;
 	oneshot_sensor_map[ONESHOT_SENSOR_FOD_PRESS] = &fod_press_sensor;
+
+	oneshot_sensor_enable_wq =
+		create_singlethread_workqueue("oneshot_sensor_enable_wq");
+	if (IS_ERR(oneshot_sensor_enable_wq)) {
+		pr_err("failed to create workqueue for oneshot sensor enabling\n");
+		goto create_oneshot_workqueue_err;
+	}
+	INIT_DELAYED_WORK(&oneshot_sensor_enable_work,
+			  oneshot_sensor_enable_handler);
 
 	ret = misc_register(&misc_dev);
 	if (ret) {
@@ -296,21 +431,42 @@ static int __init xiaomi_touch_init(void)
 		goto device_create_err;
 	}
 
+	register_panel_wq =
+		create_singlethread_workqueue("touch_register_panel_wq");
+	if (IS_ERR(register_panel_wq)) {
+		pr_err("failed to create workqueue for panel work\n");
+		goto create_workqueue_err;
+	}
+	INIT_DELAYED_WORK(&register_panel_work, register_panel_handler);
+	queue_delayed_work(register_panel_wq, &register_panel_work, 0);
+
 	return ret;
 
+create_workqueue_err:
+	device_unregister(touch_dev);
 device_create_err:
 	class_destroy(touch_class);
 class_create_err:
 	misc_deregister(&misc_dev);
 misc_register_err:
+	destroy_workqueue(oneshot_sensor_enable_wq);
+create_oneshot_workqueue_err:
 	return ret;
 }
 
 static void __exit xiaomi_touch_exit(void)
 {
+	cancel_delayed_work_sync(&register_panel_work);
+	destroy_workqueue(register_panel_wq);
+	if (!IS_ERR(panel_cookie_primary))
+		panel_event_notifier_unregister(panel_cookie_primary);
+	if (!IS_ERR(panel_cookie_secondary))
+		panel_event_notifier_unregister(panel_cookie_secondary);
 	device_unregister(touch_dev);
 	class_destroy(touch_class);
 	misc_deregister(&misc_dev);
+	cancel_delayed_work_sync(&oneshot_sensor_enable_work);
+	destroy_workqueue(oneshot_sensor_enable_wq);
 }
 
 module_init(xiaomi_touch_init);
