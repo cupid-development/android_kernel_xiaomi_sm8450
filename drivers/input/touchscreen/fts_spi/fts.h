@@ -43,6 +43,12 @@
 #include <linux/sched.h>
 #include <uapi/linux/sched/types.h>
 
+#define FTS_XIAOMI_TOUCHFEATURE
+
+#ifdef FTS_XIAOMI_TOUCHFEATURE
+#include "../xiaomi/xiaomi_touch.h"
+#endif
+
 /****************** CONFIGURATION SECTION ******************/
 /** @defgroup conf_section	 Driver Configuration Section
 * Settings of the driver code in order to suit the HW set up and the application behavior
@@ -92,7 +98,6 @@
 #define LIMITS_ARRAY_NAME myArray2
 #endif
 
-#define FTS_XIAOMI_TOUCHFEATURE
 #define FTS_FOD_AREA_REPORT
 #define FTS_DEBUG_FS
 
@@ -433,9 +438,6 @@ struct fts_ts_info {
 	struct mutex fod_mutex;
 	struct mutex cmd_update_mutex;
 	bool fod_pressed;
-	bool prox_sensor_changed;
-	bool prox_sensor_switch;
-	bool palm_sensor_switch;
 	bool enable_touch_raw;
 	bool enable_touch_delta;
 	bool enable_thp_fw;
@@ -466,6 +468,8 @@ struct fts_ts_info {
 	struct mutex charge_lock;
 	int nonui_status;
 	bool gpio_has_request;
+
+	struct xiaomi_touch_interface xiaomi_touch;
 };
 
 extern int fts_chip_powercycle(struct fts_ts_info *info);
@@ -481,10 +485,5 @@ bool fts_is_infod(void);
 #endif
 void fts_restore_regvalues(void);
 const char *fts_get_limit(struct fts_ts_info *info);
-#ifdef FTS_XIAOMI_TOUCHFEATURE
-int fts_palm_sensor_cmd(int input);
-int fts_prox_sensor_cmd(int input);
-bool fts_touchmode_edgefilter(unsigned int touch_id, int x, int y);
-#endif
 #endif
 int fts_enable_thp_selfcap_scan(int en);
