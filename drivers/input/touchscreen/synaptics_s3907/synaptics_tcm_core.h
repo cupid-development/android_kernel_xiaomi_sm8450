@@ -703,12 +703,6 @@ struct syna_tcm_hcd {
 	int maintenance_result;
 	struct mutex cmd_update_mutex;
 
-#ifdef SYNA_TCM_XIAOMI_TOUCHFEATURE
-	struct work_struct cmd_update_work;
-	struct work_struct grip_mode_work;
-	struct workqueue_struct *game_wq;
-#endif
-
 	struct workqueue_struct *selftest_wq;
 	struct work_struct selftest_work;
 	wait_queue_head_t selftest_wait_queue;
@@ -731,6 +725,8 @@ struct syna_tcm_hcd {
 	int (*testing_xiaomi_report_data)(int report_type, char *buf);
 	int (*testing_xiaomi_self_test)(char *buf);
 	int (*testing_xiaomi_chip_id_read)(void);
+
+	struct xiaomi_touch_interface xiaomi_touch;
 };
 
 struct syna_tcm_module_cb {
