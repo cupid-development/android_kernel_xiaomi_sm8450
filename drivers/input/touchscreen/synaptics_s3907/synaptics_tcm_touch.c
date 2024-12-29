@@ -37,6 +37,7 @@
 #include <linux/input/mt.h>
 #include <linux/interrupt.h>
 #include "synaptics_tcm_core.h"
+#include <linux/rtc.h>
 #include <linux/time.h>
 #define TYPE_B_PROTOCOL
 
@@ -181,34 +182,7 @@ static unsigned int g_end_of_foreach = 0;
 #define CENTER_Y_ZIYI 21470
 void touch_fod_test(int value)
 {
-	if (value) {
-		input_report_key(touch_hcd->input_dev, BTN_INFO, 1);
-		input_sync(touch_hcd->input_dev);
-		update_fod_press_status(1);
-		input_mt_slot(touch_hcd->input_dev, 0);
-		input_mt_report_slot_state(touch_hcd->input_dev, MT_TOOL_FINGER,
-					   1);
-		input_report_key(touch_hcd->input_dev, BTN_TOUCH, 1);
-		input_report_key(touch_hcd->input_dev, BTN_TOOL_FINGER, 1);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_TRACKING_ID, 0);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MAJOR, 1);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MINOR, 1);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_POSITION_X,
-				 CENTER_X_ZIYI);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_POSITION_Y,
-				 CENTER_Y_ZIYI);
-		input_sync(touch_hcd->input_dev);
-	} else {
-		input_mt_slot(touch_hcd->input_dev, 0);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MAJOR, 0);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MINOR, 0);
-		input_mt_report_slot_state(touch_hcd->input_dev, MT_TOOL_FINGER,
-					   0);
-		input_report_abs(touch_hcd->input_dev, ABS_MT_TRACKING_ID, -1);
-		input_report_key(touch_hcd->input_dev, BTN_INFO, 0);
-		update_fod_press_status(0);
-		input_sync(touch_hcd->input_dev);
-	}
+	notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, value);
 }
 
 static void touch_fod_down_event(void)
@@ -217,11 +191,9 @@ static void touch_fod_down_event(void)
 
 	/* Todo: add customer FOD action. */
 	if (!tcm_hcd->fod_display_enabled) {
-		input_report_key(touch_hcd->input_dev, BTN_INFO, 1);
-		input_sync(touch_hcd->input_dev);
 		LOGI(tcm_hcd->pdev->dev.parent, "FOD DOWN Dfetected\n");
 		tcm_hcd->fod_display_enabled = true;
-		update_fod_press_status(1);
+		notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 1);
 	}
 }
 
@@ -232,14 +204,9 @@ static void touch_fod_up_event(void)
 	/* Todo: add customer FOD action. */
 	tcm_hcd->fod_finger = false;
 	LOGI(tcm_hcd->pdev->dev.parent, "FOD UP Detected\n");
-	input_report_key(touch_hcd->input_dev, BTN_INFO, 0);
-	input_mt_slot(touch_hcd->input_dev, fod_id);
-	input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MAJOR, 0);
-	input_report_abs(touch_hcd->input_dev, ABS_MT_WIDTH_MINOR, 0);
-	input_sync(touch_hcd->input_dev);
 	tcm_hcd->fod_display_enabled = false;
 	fod_id = TOUCH_FOD_INVALID_ID;
-	update_fod_press_status(0);
+	notify_oneshot_sensor(ONESHOT_SENSOR_FOD_PRESS, 0);
 }
 
 int touch_flush_slots(struct syna_tcm_hcd *tcm_hcd)
@@ -1182,17 +1149,11 @@ static void touch_report(void)
 		if (touch_data->gesture_id == GESTURE_DOUBLE_TAP) {
 			LOGI(tcm_hcd->pdev->dev.parent,
 			     "Double TAP Detected\n");
-			input_report_key(touch_hcd->input_dev, KEY_WAKEUP, 1);
-			input_sync(touch_hcd->input_dev);
-			input_report_key(touch_hcd->input_dev, KEY_WAKEUP, 0);
-			input_sync(touch_hcd->input_dev);
+			notify_oneshot_sensor(ONESHOT_SENSOR_DOUBLE_TAP, 1);
 		} else if (touch_data->gesture_id == GESTURE_SINGLE_TAP) {
 			LOGI(tcm_hcd->pdev->dev.parent,
 			     "Single TAP Detected\n");
-			input_report_key(touch_hcd->input_dev, KEY_GOTO, 1);
-			input_sync(touch_hcd->input_dev);
-			input_report_key(touch_hcd->input_dev, KEY_GOTO, 0);
-			input_sync(touch_hcd->input_dev);
+			notify_oneshot_sensor(ONESHOT_SENSOR_SINGLE_TAP, 1);
 		}
 	}
 #endif
@@ -1217,26 +1178,10 @@ finger_pos:
 			input_mt_slot(touch_hcd->input_dev, idx);
 			input_mt_report_slot_state(touch_hcd->input_dev,
 						   MT_TOOL_FINGER, 0);
-			last_touch_events_collect(idx, 0);
 #endif
-			if (tcm_hcd->palm_sensor_enable &&
-			    tcm_hcd->palm_enable_status) {
-				tcm_hcd->palm_enable_status = 0;
-				update_palm_sensor_value(
-					tcm_hcd->palm_enable_status);
-			}
 			break;
 		case PALM:
 			/* Todo: add customer code for palm handle */
-			if (tcm_hcd->palm_sensor_enable &&
-			    !tcm_hcd->palm_enable_status) {
-				LOGI(tcm_hcd->pdev->dev.parent,
-				     "Palm %d detected, palm_sensor_enable = %d\n",
-				     idx, tcm_hcd->palm_sensor_enable);
-				tcm_hcd->palm_enable_status = 1;
-				update_palm_sensor_value(
-					tcm_hcd->palm_enable_status);
-			}
 			break;
 		case FINGER:
 		case GLOVED_FINGER:
@@ -1288,10 +1233,6 @@ finger_pos:
 #ifndef TYPE_B_PROTOCOL
 			input_mt_sync(touch_hcd->input_dev);
 #endif
-			if ((touch_hcd->prev_status[idx] != FINGER) &&
-			    (touch_hcd->prev_status[idx] != GLOVED_FINGER)) {
-				last_touch_events_collect(idx, 1);
-			}
 			log_obj_x[idx] = x;
 			log_obj_y[idx] = y;
 			touch_count++;
@@ -1459,10 +1400,8 @@ static int touch_set_input_dev(void)
 
 #if WAKEUP_GESTURE
 	set_bit(KEY_WAKEUP, touch_hcd->input_dev->keybit);
-	set_bit(BTN_INFO, touch_hcd->input_dev->keybit);
 	set_bit(KEY_GOTO, touch_hcd->input_dev->keybit);
 	input_set_capability(touch_hcd->input_dev, EV_KEY, KEY_WAKEUP);
-	input_set_capability(touch_hcd->input_dev, EV_KEY, BTN_INFO);
 	input_set_capability(touch_hcd->input_dev, EV_KEY, KEY_GOTO);
 #endif
 
