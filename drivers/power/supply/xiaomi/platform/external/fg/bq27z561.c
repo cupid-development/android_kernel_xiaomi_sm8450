@@ -2063,7 +2063,7 @@ static int fg_set_term_config(struct bq_fg_chip *bq)
 	if (bq->fg_device == NFG1000B) {
 		data_term[0] = 108;
 		data_term[1] = 7;
-	} else if (bq->fg_device == BQ27Z561) {
+	} else if (bq->fg_device == TIBQ27Z561) {
 		data_term[0] = 220;
 		data_term[1] = 5;
 	}
