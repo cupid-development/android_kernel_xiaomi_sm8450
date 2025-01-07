@@ -246,13 +246,13 @@ static struct attribute *oneshot_sensor_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group oneshot_sensor_attr_group = {
+static const struct attribute_group oneshot_sensor_group = {
 	// name defaults to NULL (device name will be used)
 	.attrs = oneshot_sensor_attrs,
 };
 
 const struct attribute_group *touch_attr_groups[] = {
-	&oneshot_sensor_attr_group,
+	&oneshot_sensor_group,
 	NULL,
 };
 
