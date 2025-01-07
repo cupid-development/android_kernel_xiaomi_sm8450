@@ -77,6 +77,13 @@ static atomic_t suspended;
 static struct workqueue_struct *oneshot_sensor_enable_wq;
 static struct delayed_work oneshot_sensor_enable_work;
 
+/*
+ * Stores the last fod state reported by userspace.
+ * This can be used by userspace software to poll whether fod is
+ * currently shown and ready.
+ */
+static atomic_t fod_finger_state;
+
 int register_xiaomi_touch_client(enum touch_id touch_id,
 				 struct xiaomi_touch_interface *interface)
 {
@@ -251,8 +258,25 @@ static const struct attribute_group oneshot_sensor_group = {
 	.attrs = oneshot_sensor_attrs,
 };
 
+static ssize_t fod_finger_state_show(struct device *dev,
+				     struct device_attribute *attr, char *buf)
+{
+	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&fod_finger_state));
+}
+DEVICE_ATTR_RO(fod_finger_state);
+
+static struct attribute *fod_finger_state_attrs[] = {
+	&dev_attr_fod_finger_state.attr,
+	NULL,
+};
+static const struct attribute_group fod_finger_state_group = {
+	// name defaults to NULL (device name will be used)
+	.attrs = fod_finger_state_attrs,
+};
+
 const struct attribute_group *touch_attr_groups[] = {
 	&oneshot_sensor_group,
+	&fod_finger_state_group,
 	NULL,
 };
 
@@ -267,6 +291,15 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 
 	pr_info("cmd: %d, mode: %d, value: %d\n", _IOC_NR(cmd), request.mode,
 		request.value);
+
+	switch (request.mode) {
+	case TOUCH_MODE_FOD_FINGER_STATE:
+		atomic_set(&fod_finger_state, request.value);
+		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
+		goto end;
+	default:
+		break;
+	}
 
 	interface = interfaces[TOUCH_ID_PRIMARY];
 	if (!interface || !interface->get_mode_value ||
@@ -286,6 +319,7 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 		return -EINVAL;
 	}
 
+end:
 	return copy_to_user((int __user *)arg, &request, sizeof(request));
 }
 
