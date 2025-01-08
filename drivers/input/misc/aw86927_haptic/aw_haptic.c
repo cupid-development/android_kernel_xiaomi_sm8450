@@ -1562,7 +1562,8 @@ MODULE_DEVICE_TABLE(i2c, awinic_i2c_id);
 
 static const struct of_device_id aw_dt_match[] = {
 
-	{ .compatible = "awinic,awinic_haptic" },
+	{ .compatible = "awinic,aw8697_haptic" },
+	{ .compatible = "awinic,aw86297_haptic" },
 
 	{},
 
