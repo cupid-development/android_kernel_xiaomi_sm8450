@@ -918,7 +918,7 @@ static int awinic_i2c_probe(struct i2c_client *i2c,
 
 		return -ENOMEM;
 
-	input_dev->name = "awinic_haptic";
+	input_dev->name = AW_HAPTIC_NAME;
 
 	awinic->dev = &i2c->dev;
 
@@ -1573,7 +1573,7 @@ static struct i2c_driver awinic_i2c_driver = {
 
 	.driver = {
 
-		   .name = AW_I2C_NAME,
+		   .name = AW_HAPTIC_NAME,
 
 		   .owner = THIS_MODULE,
 
