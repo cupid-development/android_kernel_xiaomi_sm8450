@@ -12,11 +12,11 @@
 /********************************************
  * print information control
  *******************************************/
-#define aw_err(format, ...) pr_err("[awinic_haptic]" format, ##__VA_ARGS__)
+#define aw_err(format, ...) pr_err("[aw8697_haptic]" format, ##__VA_ARGS__)
 
-#define aw_info(format, ...) pr_info("[awinic_haptic]" format, ##__VA_ARGS__)
+#define aw_info(format, ...) pr_info("[aw8697_haptic]" format, ##__VA_ARGS__)
 
-#define aw_dbg(format, ...) pr_debug("[awinic_haptic]" format, ##__VA_ARGS__)
+#define aw_dbg(format, ...) pr_debug("[aw8697_haptic]" format, ##__VA_ARGS__)
 
 /*********************************************************
 *
@@ -24,7 +24,7 @@
 *
 ********************************************************/
 #define AW_I2C_NAME "awinic_haptic"
-#define AW_HAPTIC_NAME "awinic_haptic"
+#define AW_HAPTIC_NAME "aw8697_haptic"
 
 #define AW8697_CHIP_ID (0x97)
 #define AW86927_CHIP_ID (0x9270)
