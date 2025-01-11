@@ -706,4 +706,6 @@ int goodix_ts_esd_init(struct goodix_ts_core *cd);
 void goodix_fb_ext_ctrl(int suspend);
 */
 
+int goodix_check_ts_id_gpio(struct device *dev);
+
 #endif
