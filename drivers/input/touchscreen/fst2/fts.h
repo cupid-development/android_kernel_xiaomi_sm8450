@@ -22,11 +22,15 @@
 #include <linux/device.h>
 #include "fts_lib/fts_io.h"
 
+#define FTS_XIAOMI_TOUCHFEATURE
+
+#ifdef FTS_XIAOMI_TOUCHFEATURE
+#include "../xiaomi/xiaomi_touch.h"
+#endif
+
 #define FTS_TS_DRV_NAME		"fts-pri"
 #define FTS_TS_DRV_VERSION	"6.0.3"
 #define FTS_TS_DRV_VER		0x06000003
-
-#define FTS_XIAOMI_TOUCHFEATURE
 
 #define MAX_FIFO_EVENT	100
 
@@ -141,8 +145,7 @@ struct fts_ts_info {
 	struct delayed_work panel_notifier_register_work;
 	void *notifier_cookie;
 
-	struct class *fts_tp_class;
-	struct device *fts_touch_dev;
+	struct xiaomi_touch_interface xiaomi_touch;
 
 	int gesture_enabled;
 };
