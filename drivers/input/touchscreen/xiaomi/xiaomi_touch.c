@@ -311,6 +311,9 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 		atomic_set(&fod_finger_state, request.value);
 		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
 		goto end;
+	case TOUCH_MODE_NONUI_MODE:
+		oneshot_sensor_update_driver(active_touch_id, request.value);
+		goto end;
 	case TOUCH_MODE_FOLD_STATUS:
 		switch (request.value) {
 		case TOUCH_FOLD_STATUS_UNFOLDED:
