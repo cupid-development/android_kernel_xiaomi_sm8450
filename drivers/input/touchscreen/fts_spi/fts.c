@@ -7610,7 +7610,11 @@ static int fts_probe(struct spi_device *client)
 	info->xiaomi_touch.set_mode_value = fts_set_cur_value;
 	info->xiaomi_touch.get_mode_value = fts_get_mode_value;
 	info->xiaomi_touch.private = info;
+#ifdef CONFIG_TOUCHSCREEN_ST_FTS_V521_SPI_SECONDARY
+	register_xiaomi_touch_client(TOUCH_ID_SECONDARY, &info->xiaomi_touch);
+#else
 	register_xiaomi_touch_client(TOUCH_ID_PRIMARY, &info->xiaomi_touch);
+#endif
 #endif
 
 	fts_info->enable_touch_delta = 1;
