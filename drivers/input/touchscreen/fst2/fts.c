@@ -59,11 +59,6 @@
 #include "fts_lib/fts_test.h"
 #include "fts_lib/fts_error.h"
 
-#ifdef FTS_XIAOMI_TOUCHFEATURE
-#include "../xiaomi/xiaomi_touch.h"
-#endif
-
-struct fts_ts_info *fts_info;
 spinlock_t fts_int;
 static int system_reseted_up;
 static int system_reseted_down;
@@ -290,21 +285,6 @@ static int fts_mode_handler(struct fts_ts_info *info, int force)
 }
 
 /**
- * Report to the linux input system the pressure and release of a button handling concurrency
- * @param info pointer to fts_ts_info which contains info about the device and its hw setup
- * @param key_code	button value
- */
-void fts_input_report_key(struct fts_ts_info *info, int key_code)
-{
-	mutex_lock(&info->input_report_mutex);
-	input_report_key(info->input_dev, key_code, 1);
-	input_sync(info->input_dev);
-	input_report_key(info->input_dev, key_code, 0);
-	input_sync(info->input_dev);
-	mutex_unlock(&info->input_report_mutex);
-}
-
-/**
  * Event handler for user report events (EVT_ID_USER_REPORT)
  * Handle user events reported by the FW due to some interaction triggered by an external user (press keys, perform gestures, etc.)
  */
@@ -317,7 +297,7 @@ static void fts_user_report_event_handler(struct fts_ts_info *info,
 		case GEST_ID_DBLTAP:
 			if (!info->gesture_enabled)
 				return;
-			fts_input_report_key(info, KEY_WAKEUP);
+			notify_oneshot_sensor(ONESHOT_SENSOR_DOUBLE_TAP, 1);
 			break;
 
 		default:
@@ -639,7 +619,6 @@ static void fts_resume_work(struct work_struct *work)
 	fts_mode_handler(info, 0);
 	info->sensor_sleep = false;
 	fts_enable_interrupt();
-	xiaomi_touch_set_suspend_state(XIAOMI_TOUCH_RESUME);
 }
 
 /**
@@ -657,7 +636,6 @@ static void fts_suspend_work(struct work_struct *work)
 	release_all_touches(info);
 	info->sensor_sleep = true;
 	fts_enable_interrupt();
-	xiaomi_touch_set_suspend_state(XIAOMI_TOUCH_SUSPEND);
 }
 
 
@@ -779,32 +757,35 @@ static void fts_register_panel_notifier_work(struct work_struct *work)
 #endif
 
 #ifdef FTS_XIAOMI_TOUCHFEATURE
-static struct xiaomi_touch_interface xiaomi_touch_interfaces;
-
-static int fts_set_cur_value(int mode, int value)
+static int fts_set_cur_value(void *private, enum touch_mode mode, int value)
 {
+	struct fts_ts_info *fts_info = private;
+
 	log_info(1, "%s: mode: %d, value: %d\n", __func__, mode, value);
-
-	if (mode == Touch_Doubletap_Mode && fts_info && value >= 0) {
+	switch (mode) {
+	case TOUCH_MODE_DOUBLETAP_GESTURE:
 		fts_info->gesture_enabled = value;
-		return 0;
+		break;
+	default:
+		log_info(1, "%s: unhandled mode %d\n", __func__, mode);
 	}
-
-	log_info(1, "%s: unhandled mode %d\n", __func__, mode);
 
 	return 0;
 }
 
-static int fts_get_cur_value(int mode, int value_type)
+static int fts_get_cur_value(void *private, enum touch_mode mode)
 {
-	log_info(1, "%s: mode: %d, value type: %d\n", __func__, mode, value_type);
+	struct fts_ts_info *fts_info = private;
 
-	if (mode == Touch_Doubletap_Mode && fts_info) {
+	log_info(1, "%s: mode: %d\n", __func__, mode);
+	switch (mode) {
+	case TOUCH_MODE_DOUBLETAP_GESTURE:
 		return fts_info->gesture_enabled;
+	default:
+		log_info(1, "%s: unsupported mode %d\n", __func__, mode);
 	}
 
-	log_info(1, "%s: unsupported mode %d with value type %d\n", __func__, mode, value_type);
-	return -1;
+	return 0;
 }
 #endif
 
@@ -1301,7 +1282,6 @@ static int fts_probe(struct spi_device *client)
 		goto probe_error_exit_0;
 	}
 
-	fts_info = info;
 	info->client = client;
 	info->dev = &info->client->dev;
 
@@ -1428,7 +1408,6 @@ static int fts_probe(struct spi_device *client)
 						PRESSURE_MAX, 0, 0);
 	input_set_abs_params(info->input_dev, ABS_MT_DISTANCE, DISTANCE_MIN,
 						DISTANCE_MAX, 0, 0);
-	input_set_capability(info->input_dev, EV_KEY, KEY_WAKEUP);
 	mutex_init(&(info->input_report_mutex));
 	spin_lock_init(&fts_int);
 	error = input_register_device(info->input_dev);
@@ -1474,33 +1453,15 @@ static int fts_probe(struct spi_device *client)
 			   msecs_to_jiffies(1000));
 #endif
 
-	if (info->fts_tp_class == NULL)
 #ifdef FTS_XIAOMI_TOUCHFEATURE
-		info->fts_tp_class = get_xiaomi_touch_class();
-#else
-		info->fts_tp_class = class_create(THIS_MODULE, "touch");
-#endif
-	info->fts_touch_dev = device_create(info->fts_tp_class, NULL,
-										CHIP_ID, info, "tp_dev");
-
-	if (IS_ERR(info->fts_touch_dev)) {
-		log_info(1, "ERROR: Failed to create device for sysfs!\n");
-		goto probe_error_exit_7;
-	}
-
-#ifdef FTS_XIAOMI_TOUCHFEATURE
-	memset(&xiaomi_touch_interfaces, 0x00,
-		   sizeof(struct xiaomi_touch_interface));
-	xiaomi_touch_interfaces.setModeValue = fts_set_cur_value;
-	xiaomi_touch_interfaces.getModeValue = fts_get_cur_value;
-	xiaomitouch_register_modedata(0, &xiaomi_touch_interfaces);
+	info->xiaomi_touch.set_mode_value = fts_set_cur_value;
+	info->xiaomi_touch.get_mode_value = fts_get_cur_value;
+	info->xiaomi_touch.private = info;
+	register_xiaomi_touch_client(TOUCH_ID_PRIMARY, &info->xiaomi_touch);
 #endif
 
 	log_info(1, "%s: Probe Finished!\n", __func__);
 	return OK;
-
-probe_error_exit_7:
-	device_destroy(info->fts_tp_class, CHIP_ID);
 
 probe_error_exit_6:
 	input_unregister_device(info->input_dev);
@@ -1527,7 +1488,6 @@ probe_error_exit_2:
 		devm_pinctrl_put(info->ts_pinctrl);
 
 probe_error_exit_1:
-	fts_info = NULL;
 	kfree(info);
 
 probe_error_exit_0:
@@ -1560,10 +1520,8 @@ static int fts_remove(struct spi_device *client)
 #ifndef FW_UPDATE_ON_PROBE
 	destroy_workqueue(info->fwu_workqueue);
 #endif
-	device_destroy(info->fts_tp_class, CHIP_ID);
 	fts_enable_reg(info, false);
 	fts_get_reg(info, false);
-	fts_info = NULL;
 	kfree(info);
 	return OK;
 }
