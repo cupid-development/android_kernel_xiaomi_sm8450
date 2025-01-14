@@ -131,7 +131,17 @@ int notify_oneshot_sensor(enum oneshot_sensor_type sensor_type, int value)
 }
 EXPORT_SYMBOL_GPL(notify_oneshot_sensor);
 
-static void oneshot_sensor_update_driver(enum touch_id touch_id, bool enabled)
+/**
+ * oneshot_sensor_update_driver: - Enable/disable the touchscreen drivers gestures
+ *                                 related to the the oneshot sensors.
+ * @touch_id: The identifier of the touchscreen driver to update.
+ * @enabled: Whether the gestures should be enabled or disabled.
+ * @requested_state: Array of length ONESHOT_SENSOR_TYPE_NUM containing the
+ *                   requested state for each oneshot sensor. Can be NULL if
+ *                   @enabled is false.
+ */
+static void oneshot_sensor_update_driver(enum touch_id touch_id, bool enabled,
+					 atomic_t requested_state[])
 {
 	int i;
 	struct xiaomi_touch_interface *interface;
@@ -143,10 +153,7 @@ static void oneshot_sensor_update_driver(enum touch_id touch_id, bool enabled)
 
 	for (i = 0; i < ONESHOT_SENSOR_TYPE_NUM; i++) {
 		int requested_value =
-			enabled ?
-				atomic_read(
-					&oneshot_sensor_enabled_requested[i]) :
-				0;
+			enabled ? atomic_read(&requested_state[i]) : 0;
 		if (atomic_xchg(&oneshot_sensor_enabled[touch_id][i], requested_value) !=
 		    requested_value) {
 			pr_info("setting mode %d to %d!\n", i, requested_value);
@@ -160,7 +167,8 @@ static void oneshot_sensor_update_driver(enum touch_id touch_id, bool enabled)
 static void oneshot_sensor_enable_handler(struct work_struct *work)
 {
 	if (atomic_read(&suspended))
-		oneshot_sensor_update_driver(active_touch_id, true);
+		oneshot_sensor_update_driver(active_touch_id, true,
+					     oneshot_sensor_enabled_requested);
 }
 
 static ssize_t oneshot_sensor_status_show(struct device *dev,
@@ -299,6 +307,7 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 {
 	struct xiaomi_touch_interface *interface;
 	struct touch_mode_request request;
+	enum touch_id requested_touch_id;
 
 	if (copy_from_user(&request, (int __user *)arg, sizeof(request)))
 		return -EFAULT;
@@ -312,22 +321,28 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
 		goto end;
 	case TOUCH_MODE_NONUI_MODE:
-		oneshot_sensor_update_driver(active_touch_id, request.value);
+		oneshot_sensor_update_driver(active_touch_id, request.value,
+					     oneshot_sensor_enabled_requested);
 		goto end;
 	case TOUCH_MODE_FOLD_STATUS:
 		switch (request.value) {
 		case TOUCH_FOLD_STATUS_UNFOLDED:
-			active_touch_id = TOUCH_ID_PRIMARY;
-			oneshot_sensor_update_driver(TOUCH_ID_PRIMARY, true);
-			oneshot_sensor_update_driver(TOUCH_ID_SECONDARY, false);
+			requested_touch_id = TOUCH_ID_PRIMARY;
 			break;
 		case TOUCH_FOLD_STATUS_FOLDED:
-			active_touch_id = TOUCH_ID_SECONDARY;
-			oneshot_sensor_update_driver(TOUCH_ID_PRIMARY, false);
-			oneshot_sensor_update_driver(TOUCH_ID_SECONDARY, true);
+			requested_touch_id = TOUCH_ID_SECONDARY;
 			break;
 		default:
 			return -EINVAL;
+		}
+
+		if (active_touch_id != requested_touch_id) {
+			oneshot_sensor_update_driver(
+				requested_touch_id, true,
+				oneshot_sensor_enabled[active_touch_id]);
+			oneshot_sensor_update_driver(active_touch_id, false,
+						     NULL);
+			active_touch_id = requested_touch_id;
 		}
 		goto end;
 	default:
