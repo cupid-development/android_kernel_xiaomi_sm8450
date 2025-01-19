@@ -92,6 +92,13 @@ static atomic_t fod_finger_state;
  */
 static enum touch_id active_touch_id = TOUCH_ID_PRIMARY;
 
+/*
+ * Controls whether gestures are reported up to userspace.
+ * Userspace can set this using the TOUCH_MODE_NONUI_MODE
+ * command to enable/disable this mode.
+ */
+static atomic_t pocket_disable_gestures = ATOMIC_INIT(0);
+
 int register_xiaomi_touch_client(enum touch_id touch_id,
 				 struct xiaomi_touch_interface *interface)
 {
@@ -123,9 +130,14 @@ int notify_oneshot_sensor(enum oneshot_sensor_type sensor_type, int value)
 		       sensor_type);
 		return -EINVAL;
 	}
-	sensor = oneshot_sensor_map[sensor_type];
-	atomic_set(&sensor->pending_event, value);
-	sysfs_notify(&touch_dev->kobj, NULL, sensor->status_name);
+	if (atomic_read(&pocket_disable_gestures)) {
+		pr_info("gesture of type %d with value %d ignored due to pocket/nonui mode\n",
+			sensor_type, value);
+	} else {
+		sensor = oneshot_sensor_map[sensor_type];
+		atomic_set(&sensor->pending_event, value);
+		sysfs_notify(&touch_dev->kobj, NULL, sensor->status_name);
+	}
 
 	return 0;
 }
@@ -321,8 +333,7 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
 		goto end;
 	case TOUCH_MODE_NONUI_MODE:
-		oneshot_sensor_update_driver(active_touch_id, !request.value,
-					     oneshot_sensor_enabled_requested);
+		atomic_set(&pocket_disable_gestures, request.value);
 		goto end;
 	case TOUCH_MODE_FOLD_STATUS:
 		switch (request.value) {
