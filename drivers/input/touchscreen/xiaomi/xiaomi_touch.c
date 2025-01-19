@@ -73,7 +73,7 @@ static struct oneshot_sensor *oneshot_sensor_map[ONESHOT_SENSOR_TYPE_NUM];
 static atomic_t oneshot_sensor_enabled_requested[ONESHOT_SENSOR_TYPE_NUM];
 static atomic_t oneshot_sensor_enabled[TOUCH_ID_NUM][ONESHOT_SENSOR_TYPE_NUM];
 
-static atomic_t suspended;
+static atomic_t suspended = ATOMIC_INIT(0);
 
 static struct workqueue_struct *oneshot_sensor_enable_wq;
 static struct delayed_work oneshot_sensor_enable_work;
@@ -83,7 +83,7 @@ static struct delayed_work oneshot_sensor_enable_work;
  * This can be used by userspace software to poll whether fod is
  * currently shown and ready.
  */
-static atomic_t fod_finger_state;
+static atomic_t fod_finger_state = ATOMIC_INIT(0);
 
 /*
  * Stores the active touch id, as reported by userspace via
