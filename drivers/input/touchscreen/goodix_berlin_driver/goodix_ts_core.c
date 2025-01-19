@@ -1976,7 +1976,12 @@ static void goodix_set_gesture_work(struct work_struct *work)
 		goto exit;
 	}
 
-	hw_ops->reset(core_data, GOODIX_NORMAL_RESET_DELAY_MS);
+	res = hw_ops->reset(core_data, GOODIX_NORMAL_RESET_DELAY_MS);
+	if (res) {
+		ts_err("reset failed during gesture works");
+		goto exit;
+	}
+
 	res = hw_ops->gesture(core_data, target_gesture_type);
 	if (res) {
 		ts_err("failed enter gesture mode");
