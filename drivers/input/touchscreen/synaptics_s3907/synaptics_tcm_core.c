@@ -4087,6 +4087,15 @@ static int syna_tcm_set_cur_value(void *private, enum touch_mode mode, int value
 			}
 		}
 		break;
+	case TOUCH_MODE_REPORT_RATE:
+		retval = tcm_hcd->set_dynamic_config(tcm_hcd,
+						     DC_SET_REPORT_RATE, value);
+		if (retval < 0) {
+			LOGE(tcm_hcd->pdev->dev.parent,
+			     "Failed to set dynamic config, retval=%d\n",
+			     retval);
+			goto exit;
+		}
 	default:
 		LOGE(tcm_hcd->pdev->dev.parent, "handler got mode %d with value %d, not implemented",
 		       mode, value);
