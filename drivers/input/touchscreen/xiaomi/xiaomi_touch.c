@@ -99,6 +99,11 @@ static enum touch_id active_touch_id = TOUCH_ID_PRIMARY;
  */
 static atomic_t pocket_disable_gestures = ATOMIC_INIT(0);
 
+struct touch_mode_attribute {
+	struct device_attribute dev_attr;
+	enum touch_mode touch_mode;
+};
+
 int register_xiaomi_touch_client(enum touch_id touch_id,
 				 struct xiaomi_touch_interface *interface)
 {
@@ -292,6 +297,68 @@ static const struct attribute_group oneshot_sensor_group = {
 	.attrs = oneshot_sensor_attrs,
 };
 
+static ssize_t touch_mode_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct xiaomi_touch_interface *interface;
+	struct touch_mode_attribute *mode_attribute =
+		container_of(attr, struct touch_mode_attribute, dev_attr);
+
+	interface = interfaces[active_touch_id];
+	if (!interface || !interface->get_mode_value)
+		return -EFAULT;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n",
+			interface->get_mode_value(interface->private,
+						  mode_attribute->touch_mode));
+}
+
+static ssize_t touch_mode_store(struct device *dev,
+				struct device_attribute *attr, const char *arg,
+				size_t count)
+{
+	struct xiaomi_touch_interface *interface;
+	struct touch_mode_attribute *mode_attribute =
+		container_of(attr, struct touch_mode_attribute, dev_attr);
+	unsigned int value;
+
+	if (kstrtouint(arg, 10, &value))
+		return -EINVAL;
+
+	interface = interfaces[active_touch_id];
+	if (!interface || !interface->set_mode_value)
+		return -EFAULT;
+
+	interface->set_mode_value(interface->private,
+				  mode_attribute->touch_mode, value);
+
+	return count;
+}
+
+/**
+ * TOUCH_MODE_ATTR_RW - Define a read-write touch mode attribute.
+ * @_name: Attribute name.
+ * @_mode: Value of enum touch_mode corresponding to this attribute.
+ *
+ * Convenience macro for defining a struct touch_mode_attribute
+ */
+#define TOUCH_MODE_ATTR_RW(_name, _mode)                                       \
+	struct touch_mode_attribute touch_mode_attr_##_name = {                \
+		.dev_attr = __ATTR(_name, 0644, touch_mode_show,               \
+				   touch_mode_store),                          \
+		.touch_mode = _mode,                                           \
+	}
+
+TOUCH_MODE_ATTR_RW(bump_sample_rate, TOUCH_MODE_REPORT_RATE);
+
+static struct attribute *touch_mode_attrs[] = {
+	&touch_mode_attr_bump_sample_rate.dev_attr.attr,
+	NULL,
+};
+static const struct attribute_group touch_mode_group = {
+	// name defaults to NULL (device name will be used)
+	.attrs = touch_mode_attrs,
+};
 static ssize_t fod_finger_state_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
@@ -310,6 +377,7 @@ static const struct attribute_group fod_finger_state_group = {
 
 const struct attribute_group *touch_attr_groups[] = {
 	&oneshot_sensor_group,
+	&touch_mode_group,
 	&fod_finger_state_group,
 	NULL,
 };
