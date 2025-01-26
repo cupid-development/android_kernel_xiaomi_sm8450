@@ -297,40 +297,113 @@ static const struct attribute_group oneshot_sensor_group = {
 	.attrs = oneshot_sensor_attrs,
 };
 
-static ssize_t touch_mode_show(struct device *dev,
-			       struct device_attribute *attr, char *buf)
+static int touch_mode_get(enum touch_mode mode)
 {
 	struct xiaomi_touch_interface *interface;
-	struct touch_mode_attribute *mode_attribute =
-		container_of(attr, struct touch_mode_attribute, dev_attr);
+
+	// The following modes are not passed down to the touch driver
+	switch (mode) {
+	case TOUCH_MODE_FOD_FINGER_STATE:
+		return atomic_read(&fod_finger_state);
+	case TOUCH_MODE_NONUI_MODE:
+		return atomic_read(&pocket_disable_gestures);
+	case TOUCH_MODE_FOLD_STATUS:
+		switch (active_touch_id) {
+		case TOUCH_ID_PRIMARY:
+			return TOUCH_FOLD_STATUS_UNFOLDED;
+		case TOUCH_ID_SECONDARY:
+			return TOUCH_FOLD_STATUS_FOLDED;
+		default:
+			return -EINVAL;
+		}
+	default:
+		break;
+	}
 
 	interface = interfaces[active_touch_id];
 	if (!interface || !interface->get_mode_value)
 		return -EFAULT;
 
-	return snprintf(buf, PAGE_SIZE, "%d\n",
-			interface->get_mode_value(interface->private,
-						  mode_attribute->touch_mode));
+	return interface->get_mode_value(interface->private, mode);
+}
+
+static int touch_mode_set(enum touch_mode mode, int value)
+{
+	struct xiaomi_touch_interface *interface;
+	enum touch_id requested_touch_id;
+
+	// The following modes are not passed down to the touch driver
+	switch (mode) {
+	case TOUCH_MODE_FOD_FINGER_STATE:
+		atomic_set(&fod_finger_state, value);
+		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
+		return 0;
+	case TOUCH_MODE_NONUI_MODE:
+		atomic_set(&pocket_disable_gestures, value);
+		return 0;
+	case TOUCH_MODE_FOLD_STATUS:
+		switch (value) {
+		case TOUCH_FOLD_STATUS_UNFOLDED:
+			requested_touch_id = TOUCH_ID_PRIMARY;
+			return 0;
+		case TOUCH_FOLD_STATUS_FOLDED:
+			requested_touch_id = TOUCH_ID_SECONDARY;
+			return 0;
+		default:
+			return -EINVAL;
+		}
+
+		if (active_touch_id != requested_touch_id) {
+			oneshot_sensor_update_driver(
+				requested_touch_id, true,
+				oneshot_sensor_enabled[active_touch_id]);
+			oneshot_sensor_update_driver(active_touch_id, false,
+						     NULL);
+			active_touch_id = requested_touch_id;
+		}
+		return 0;
+	default:
+		break;
+	}
+
+	interface = interfaces[active_touch_id];
+	if (!interface || !interface->set_mode_value)
+		return -EFAULT;
+
+	interface->set_mode_value(interface->private, mode, value);
+
+	return 0;
+}
+
+static ssize_t touch_mode_show(struct device *dev,
+			       struct device_attribute *attr, char *buf)
+{
+	struct touch_mode_attribute *mode_attribute =
+		container_of(attr, struct touch_mode_attribute, dev_attr);
+	int value;
+
+	value = touch_mode_get(mode_attribute->touch_mode);
+	if (value < 0)
+		return value;
+
+	return snprintf(buf, PAGE_SIZE, "%d\n", value);
 }
 
 static ssize_t touch_mode_store(struct device *dev,
 				struct device_attribute *attr, const char *arg,
 				size_t count)
 {
-	struct xiaomi_touch_interface *interface;
 	struct touch_mode_attribute *mode_attribute =
 		container_of(attr, struct touch_mode_attribute, dev_attr);
 	unsigned int value;
+	int set_success;
 
 	if (kstrtouint(arg, 10, &value))
 		return -EINVAL;
 
-	interface = interfaces[active_touch_id];
-	if (!interface || !interface->set_mode_value)
-		return -EFAULT;
-
-	interface->set_mode_value(interface->private,
-				  mode_attribute->touch_mode, value);
+	set_success = touch_mode_set(mode_attribute->touch_mode, value);
+	if (set_success < 0)
+		return set_success;
 
 	return count;
 }
@@ -350,44 +423,30 @@ static ssize_t touch_mode_store(struct device *dev,
 	}
 
 TOUCH_MODE_ATTR_RW(bump_sample_rate, TOUCH_MODE_REPORT_RATE);
+TOUCH_MODE_ATTR_RW(fod_finger_state, TOUCH_MODE_FOD_FINGER_STATE);
 
 static struct attribute *touch_mode_attrs[] = {
 	&touch_mode_attr_bump_sample_rate.dev_attr.attr,
+	&touch_mode_attr_fod_finger_state.dev_attr.attr,
 	NULL,
 };
+
 static const struct attribute_group touch_mode_group = {
 	// name defaults to NULL (device name will be used)
 	.attrs = touch_mode_attrs,
-};
-static ssize_t fod_finger_state_show(struct device *dev,
-				     struct device_attribute *attr, char *buf)
-{
-	return snprintf(buf, PAGE_SIZE, "%d\n", atomic_read(&fod_finger_state));
-}
-DEVICE_ATTR_RO(fod_finger_state);
-
-static struct attribute *fod_finger_state_attrs[] = {
-	&dev_attr_fod_finger_state.attr,
-	NULL,
-};
-static const struct attribute_group fod_finger_state_group = {
-	// name defaults to NULL (device name will be used)
-	.attrs = fod_finger_state_attrs,
 };
 
 const struct attribute_group *touch_attr_groups[] = {
 	&oneshot_sensor_group,
 	&touch_mode_group,
-	&fod_finger_state_group,
 	NULL,
 };
 
 static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 				   unsigned long arg)
 {
-	struct xiaomi_touch_interface *interface;
 	struct touch_mode_request request;
-	enum touch_id requested_touch_id;
+	int retval = 0;
 
 	if (copy_from_user(&request, (int __user *)arg, sizeof(request)))
 		return -EFAULT;
@@ -395,59 +454,23 @@ static long xiaomi_touch_dev_ioctl(struct file *file, unsigned int cmd,
 	pr_info("cmd: %d, mode: %d, value: %d\n", _IOC_NR(cmd), request.mode,
 		request.value);
 
-	switch (request.mode) {
-	case TOUCH_MODE_FOD_FINGER_STATE:
-		atomic_set(&fod_finger_state, request.value);
-		sysfs_notify(&touch_dev->kobj, NULL, "fod_finger_state");
-		goto end;
-	case TOUCH_MODE_NONUI_MODE:
-		atomic_set(&pocket_disable_gestures, request.value);
-		goto end;
-	case TOUCH_MODE_FOLD_STATUS:
-		switch (request.value) {
-		case TOUCH_FOLD_STATUS_UNFOLDED:
-			requested_touch_id = TOUCH_ID_PRIMARY;
-			break;
-		case TOUCH_FOLD_STATUS_FOLDED:
-			requested_touch_id = TOUCH_ID_SECONDARY;
-			break;
-		default:
-			return -EINVAL;
-		}
-
-		if (active_touch_id != requested_touch_id) {
-			oneshot_sensor_update_driver(
-				requested_touch_id, true,
-				oneshot_sensor_enabled[active_touch_id]);
-			oneshot_sensor_update_driver(active_touch_id, false,
-						     NULL);
-			active_touch_id = requested_touch_id;
-		}
-		goto end;
-	default:
-		break;
-	}
-
-	interface = interfaces[active_touch_id];
-	if (!interface || !interface->get_mode_value ||
-	    !interface->set_mode_value)
-		return -EFAULT;
-
 	switch (_IOC_NR(cmd)) {
 	case TOUCH_MODE_SET:
-		interface->set_mode_value(interface->private, request.mode,
-					  request.value);
+		retval = touch_mode_set(request.mode, request.value);
 		break;
 	case TOUCH_MODE_GET:
-		request.value = interface->get_mode_value(interface->private,
-							  request.mode);
+		request.value = touch_mode_get(request.mode);
+		if (request.value < 0)
+			retval = -EINVAL;
+		else
+			retval = copy_to_user((int __user *)arg, &request,
+					      sizeof(request));
 		break;
 	default:
-		return -EINVAL;
+		retval = -EINVAL;
 	}
 
-end:
-	return copy_to_user((int __user *)arg, &request, sizeof(request));
+	return retval;
 }
 
 static const struct file_operations xiaomitouch_dev_fops = {
