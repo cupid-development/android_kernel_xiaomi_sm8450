@@ -955,19 +955,17 @@ int goodix_ts_blocking_notify(enum ts_notify_event evt, void *v)
  * @node: devicetree node
  * return: 0 - driver should be used, <0 driver should not be used
  */
-static int goodix_check_ts_id_gpio(
-	struct device *dev,
-	struct device_node *node)
+int goodix_check_ts_id_gpio(struct device *dev)
 {
 	int gpio, gpio_value, ret;
 	u8 match_value;
 
-	ret = of_property_read_u8(node, "goodix,ts-id-gpio-match-value",
+	ret = of_property_read_u8(dev->of_node, "goodix,ts-id-gpio-match-value",
 			&match_value);
 	if (ret < 0)
 		return 0;
 
-	gpio = of_get_named_gpio(node, "goodix,ts-id-gpio", 0);
+	gpio = of_get_named_gpio(dev->of_node, "goodix,ts-id-gpio", 0);
 	if (gpio < 0)
 		return 0;
 
@@ -2506,10 +2504,6 @@ static int goodix_ts_probe(struct platform_device *pdev)
 	node = bus_interface->dev->of_node;
 
 #if defined(CONFIG_DRM)
-	ret = goodix_check_ts_id_gpio(&pdev->dev, node);
-	if (ret < 0)
-		return ret;
-
 	ret = goodix_check_dt(node);
 	if (ret == -EPROBE_DEFER)
 		return ret;
