@@ -211,7 +211,11 @@ enum xm_property_id {
 	XM_PROP_SLAVE_DIE_TEMPERATURE,
 	XM_PROP_FG_RAW_SOC,
 	/* wireless charge infor */
+#ifdef CONFIG_MI_CHARGER_M81
 	XM_PROP_WLS_START = 50,
+#else
+	XM_PROP_WLS_START,
+#endif /* CONFIG_MI_CHARGER_M81 */
 	XM_PROP_TX_MACL,
 	XM_PROP_TX_MACH,
 	XM_PROP_PEN_MACL,
