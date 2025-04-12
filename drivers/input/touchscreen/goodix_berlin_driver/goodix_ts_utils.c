@@ -16,7 +16,7 @@
   */
 #include "goodix_ts_core.h"
 
-bool debug_log_flag = true;
+bool debug_log_flag = false;
 
 /*****************************************************************************
 * goodix_append_checksum
